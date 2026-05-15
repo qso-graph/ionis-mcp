@@ -1,6 +1,6 @@
 [project]
 name = "ionis-mcp"
-version = "1.2.8"
+version = "1.2.9"
 description = "MCP server for IONIS HF propagation analytics — 175M signatures from WSPR, RBN, Contest, DXpedition, and PSK Reporter"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
