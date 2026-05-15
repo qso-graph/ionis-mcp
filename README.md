@@ -184,6 +184,7 @@ Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
 | `solar_history` | Historical solar indices for any date range |
 | `band_summary` | Band overview — hour distribution, top grid pairs, distance range |
 | `current_conditions` | Live propagation forecast — SFI, Kp, solar wind, band outlook, POTA/SOTA tips |
+| `get_version_info` | Service version + upstream dataset version (fleet identity attestation) |
 
 ## Data Directory Layout
 

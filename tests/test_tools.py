@@ -383,3 +383,35 @@ class TestRequireDb:
                 server_mod._require_db()
         finally:
             server_mod.db = old_db
+
+
+# ── Tool: get_version_info — fleet identity attestation ─────────────────────
+# Tracks IONIS-AI/ionis-devel#49 — fleet get_version_info convention.
+
+class TestGetVersionInfo:
+    def test_returns_service_name(self):
+        """Payload includes service_name = 'ionis-mcp'."""
+        assert server_mod._version_info_payload()["service_name"] == "ionis-mcp"
+
+    def test_returns_service_version(self):
+        """service_version matches package __version__."""
+        from ionis_mcp import __version__
+
+        assert server_mod._version_info_payload()["service_version"] == __version__
+
+    def test_returns_spec_version(self):
+        """spec_version pins the IONIS dataset bundle revision."""
+        assert server_mod._version_info_payload()["spec_version"] == "ionis-dataset-v1"
+
+    def test_payload_keys_are_required_set(self):
+        """Payload has the required keys (no extras yet)."""
+        result = server_mod._version_info_payload()
+        required = {"service_name", "service_version", "spec_version"}
+        assert required.issubset(set(result.keys()))
+
+    def test_all_values_are_strings(self):
+        """All returned values are strings (JSON-safe envelope)."""
+        result = server_mod._version_info_payload()
+        for k in ("service_name", "service_version", "spec_version"):
+            assert isinstance(result[k], str), f"{k} should be str, got {type(result[k])}"
+            assert result[k], f"{k} should be non-empty"

@@ -16,7 +16,7 @@ import sys
 
 from fastmcp import FastMCP
 
-from . import default_data_dir
+from . import __spec_version__, __version__, default_data_dir
 from .database import DatabaseManager, SIGNATURE_SOURCES
 from .grids import (
     GridLookup,
@@ -61,6 +61,35 @@ def _format_number(n: int | float) -> str:
     if isinstance(n, float):
         return f"{n:,.1f}"
     return f"{n:,}"
+
+
+# ── Tool 0: get_version_info — fleet identity attestation ──────────────────
+
+
+def _version_info_payload() -> dict[str, str]:
+    """Build the version info envelope. Pulled into a helper so tests can
+    call it directly without going through the FastMCP wrapper."""
+    return {
+        "service_name": "ionis-mcp",
+        "service_version": __version__,
+        "spec_version": __spec_version__,
+    }
+
+
+@mcp.tool()
+def get_version_info() -> dict[str, str]:
+    """Get ionis-mcp service version and upstream dataset version.
+
+    Returns the running PyPI version of ionis-mcp and the IONIS
+    SourceForge dataset bundle revision in use. Use this to confirm
+    fleet alignment across MCP deployments — agents can compare
+    service_version and spec_version across servers to detect drift
+    without going outside the MCP protocol.
+
+    Returns:
+        service_name, service_version (PyPI), and spec_version (dataset bundle).
+    """
+    return _version_info_payload()
 
 
 # ── Tool 1: list_datasets ───────────────────────────────────────────────────
