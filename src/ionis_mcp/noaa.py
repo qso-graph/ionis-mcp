@@ -72,7 +72,15 @@ def fetch_current_conditions() -> SolarConditions:
     # 1. Solar flux (10.7 cm)
     try:
         data = _fetch_json(f"{SWPC_BASE}/products/summary/10cm-flux.json")
-        if isinstance(data, dict):
+        if isinstance(data, list) and data:
+            latest = data[-1] if len(data) > 1 else data[0]
+            if isinstance(latest, dict):
+                flux_str = latest.get("flux") or latest.get("Flux", "")
+                if flux_str:
+                    cond.sfi = float(flux_str)
+                cond.sfi_date = latest.get("time_tag") or latest.get("TimeStamp", "")
+        elif isinstance(data, dict):
+            # legacy
             flux_str = data.get("Flux", "")
             if flux_str:
                 cond.sfi = float(flux_str)
@@ -83,18 +91,30 @@ def fetch_current_conditions() -> SolarConditions:
     # 2. Kp index
     try:
         data = _fetch_json(f"{SWPC_BASE}/products/noaa-planetary-k-index.json")
-        if isinstance(data, list) and len(data) > 1:
-            # Last row is most recent, first row is headers
+        if isinstance(data, list) and data:
             latest = data[-1]
-            cond.kp = float(latest[1])  # Kp value
-            cond.kp_timestamp = latest[0]
+            if isinstance(latest, dict):
+                cond.kp = float(latest.get("Kp") or latest.get("kp", 0))
+                cond.kp_timestamp = latest.get("time_tag", "")
+            elif isinstance(latest, list) and len(latest) >= 2:
+                # legacy list-of-lists
+                cond.kp = float(latest[1])
+                cond.kp_timestamp = latest[0]
     except Exception as e:
         cond.errors.append(f"Kp: {e}")
 
     # 3. Solar wind magnetic field (Bz)
     try:
         data = _fetch_json(f"{SWPC_BASE}/products/summary/solar-wind-mag-field.json")
-        if isinstance(data, dict):
+        if isinstance(data, list) and data:
+            latest = data[-1] if len(data) > 1 else data[0]
+            if isinstance(latest, dict):
+                bz_str = latest.get("bz_gsm") or latest.get("Bz", "")
+                if bz_str:
+                    cond.bz = float(bz_str)
+                cond.wind_timestamp = latest.get("time_tag") or latest.get("TimeStamp", "")
+        elif isinstance(data, dict):
+            # legacy
             bz_str = data.get("Bz", "")
             if bz_str:
                 cond.bz = float(bz_str)
