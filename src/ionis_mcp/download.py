@@ -127,6 +127,76 @@ def _progress_hook(block_num, block_size, total_size):
         sys.stdout.flush()
 
 
+# SQLite files begin with this exact 16-byte string, including the terminating NUL.
+SQLITE_MAGIC = b"SQLite format 3\x00"
+
+# Below this, a response is an error page rather than any dataset we publish. The smallest
+# dataset is ~1 MB; 64 KiB is comfortably under it and comfortably over a stray HTTP header.
+MIN_PLAUSIBLE_BYTES = 64 * 1024
+
+
+class DownloadNotADatabase(Exception):
+    """The server returned something, and it was not the database we asked for."""
+
+
+def _verify_sqlite(dest: str, filename: str, expected_mb: int, headers) -> None:
+    """Fail loudly when the download is not the database it claims to be.
+
+    WHY THIS EXISTS. A download that returns the wrong thing used to be reported as success.
+    urlretrieve only raises on an HTTP error status, and a hosting provider that has lost a
+    file does not necessarily answer with one: on 2026-09-21 every path under the project --
+    including paths that had never existed -- returned HTTP 200 with a 74 KB HTML page. So
+    urlretrieve completed, the size was read off the HTML, and the user was told:
+
+        OK   wspr_signatures_v2.sqlite (0 MB in 1s, 0.1 MB/s)
+
+    Nine HTML files with .sqlite extensions, and a success message. The failure only surfaced
+    later, somewhere unrelated, as a corrupt-database error. Before that day the same URLs
+    returned 404 and the tool failed honestly -- so the user-visible behaviour got worse
+    without a line of code changing, which is exactly the kind of regression a downloader
+    cannot detect by trusting its transport.
+
+    Three checks, cheapest first. Each is sufficient alone; together they are hard to fool by
+    accident:
+
+      content type   an HTML body is never a database, whatever the status line said
+      magic bytes    the authoritative test -- a real SQLite file starts with SQLITE_MAGIC
+      size           a 74 KB answer to a 9 GB request is wrong even if it were a database
+
+    The size check warns rather than fails, deliberately. Published files legitimately change
+    size between releases, and refusing a download because a dataset grew would be a worse
+    bug than the one this guards against.
+    """
+    ctype = (headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    if ctype in ("text/html", "application/xhtml+xml"):
+        raise DownloadNotADatabase(
+            f"server returned {ctype}, not a database -- the file is probably missing or moved. "
+            f"Check {SF_BASE} in a browser."
+        )
+
+    actual = os.path.getsize(dest)
+    if actual < MIN_PLAUSIBLE_BYTES:
+        raise DownloadNotADatabase(
+            f"got {actual:,} bytes for a ~{expected_mb:,} MB dataset -- almost certainly an "
+            f"error page rather than {filename}"
+        )
+
+    with open(dest, "rb") as fh:
+        magic = fh.read(len(SQLITE_MAGIC))
+    if magic != SQLITE_MAGIC:
+        raise DownloadNotADatabase(
+            f"not a SQLite database (starts with {magic[:16]!r}) -- the download completed but "
+            f"returned something else"
+        )
+
+    # Informational only: never fail a download for being a different size than a number
+    # compiled in months ago.
+    if expected_mb and actual < (expected_mb * 1024 * 1024) * 0.5:
+        print(
+            f"\r  WARN {filename} is {actual / 1048576:,.0f} MB, expected ~{expected_mb:,} MB",
+        )
+
+
 def download_dataset(key: str, data_dir: str, force: bool = False) -> bool:
     """Download a single dataset. Returns True on success."""
     dest = _dest_path(data_dir, key)
@@ -145,8 +215,9 @@ def download_dataset(key: str, data_dir: str, force: bool = False) -> bool:
 
     start = time.time()
     try:
-        urllib.request.urlretrieve(url, dest, reporthook=_progress_hook)
+        _, headers = urllib.request.urlretrieve(url, dest, reporthook=_progress_hook)
         elapsed = time.time() - start
+        _verify_sqlite(dest, filename, size_mb, headers)
         actual_mb = os.path.getsize(dest) / (1024 * 1024)
         speed = actual_mb / elapsed if elapsed > 0 else 0
         print(f"\r  OK   {filename} ({actual_mb:,.0f} MB in {elapsed:.0f}s, {speed:.1f} MB/s)")
