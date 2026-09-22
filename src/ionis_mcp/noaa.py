@@ -122,16 +122,35 @@ def fetch_current_conditions() -> SolarConditions:
     except Exception as e:
         cond.errors.append(f"Bz: {e}")
 
-    # 4. Solar wind speed/density (DSCOVR plasma)
+    # 4. Solar wind speed/density (real-time solar wind)
+    #
+    # products/solar-wind/plasma-5-minute.json returns 404 -- SWPC retired the whole
+    # products/solar-wind/ prefix. The replacement is the RTSW feed, and it needs care:
+    # it carries ~3,200 records from SEVERAL spacecraft at once, only one of which is
+    # the live source. Taking the last element -- the obvious implementation, and what
+    # the old code did against the old feed -- returns an INACTIVE spacecraft's reading
+    # from a day earlier. Measured 2026-09-22: data[-1] was ACE at 05:00 the previous
+    # day (377.69 km/s, 1.04 p/cm3) while the newest active record was SOLAR1 at 04:55
+    # that morning (313.6 km/s, 1.94 p/cm3). A 20% error on speed, nearly 2x on density,
+    # and nothing about the result would look wrong.
+    #
+    # So: keep only active records, then take the newest by time_tag. The spacecraft is
+    # recorded because it changes -- this feed currently carries SOLAR1, ACE and IMAP,
+    # and no longer DSCOVR at all.
     try:
-        data = _fetch_json(f"{SWPC_BASE}/products/solar-wind/plasma-5-minute.json")
-        if isinstance(data, list) and len(data) > 1:
-            # First row is headers, last row is most recent
-            latest = data[-1]
-            if latest[1]:
-                cond.wind_density = float(latest[1])
-            if latest[2]:
-                cond.wind_speed = float(latest[2])
+        data = _fetch_json(f"{SWPC_BASE}/json/rtsw/rtsw_wind_1m.json")
+        if isinstance(data, list) and data:
+            active = [r for r in data if isinstance(r, dict) and r.get("active")]
+            candidates = active or [r for r in data if isinstance(r, dict)]
+            latest = max(candidates, key=lambda r: r.get("time_tag") or "")
+            if latest.get("proton_speed") is not None:
+                cond.wind_speed = float(latest["proton_speed"])
+            if latest.get("proton_density") is not None:
+                cond.wind_density = float(latest["proton_density"])
+            if not cond.wind_timestamp:
+                cond.wind_timestamp = latest.get("time_tag", "")
+            if not active:
+                cond.errors.append("Solar wind: no active spacecraft; using newest available")
     except Exception as e:
         cond.errors.append(f"Solar wind: {e}")
 
