@@ -43,6 +43,10 @@ Datasets = "https://sourceforge.net/projects/ionis-ai/files"
 ionis-mcp = "ionis_mcp.server:main"
 ionis-download = "ionis_mcp.download:main"
 
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
