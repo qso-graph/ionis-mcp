@@ -1,23 +1,40 @@
 <!-- mcp-name: io.github.qso-graph/ionis-mcp -->
 # ionis-mcp
 
-A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for HF radio propagation analytics, built on the [IONIS](https://ionis-ai.com/) dataset collection — 175M+ aggregated signatures derived from 14 billion WSPR, RBN, Contest, DXpedition, and PSK Reporter observations spanning 2005-2026.
+[![PyPI](https://img.shields.io/pypi/v/ionis-mcp?label=PyPI&color=blue)](https://pypi.org/project/ionis-mcp/)
+[![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0%2Fservers%3Fsearch%3Dionis-mcp&query=%24.servers%5B0%5D.server.version&label=MCP%20Registry&color=blue)](https://registry.modelcontextprotocol.io/v0/servers?search=ionis-mcp)
 
-## Overview
+MCP server for HF radio propagation analytics on the [IONIS-AI](https://ionis-ai.com/) datasets — 175M+ aggregated signatures derived from 14 billion WSPR, RBN, contest, DXpedition and PSK Reporter observations, 2005–2026 — through any MCP-compatible AI assistant.
 
-IONIS (Ionospheric Neural Inference System) is an open-source machine learning system for predicting HF (shortwave) radio propagation. The datasets — curated from the world's largest amateur radio telemetry networks — are distributed as SQLite files on [SourceForge](https://sourceforge.net/projects/ionis-ai/).
+Part of the [qso-graph](https://qso-graph.io/) project. **No authentication required.** The datasets are downloaded once (see [Datasets](#datasets)).
 
-**ionis-mcp** bridges those datasets to AI assistants via the Model Context Protocol. Install the package, download data, and Claude (Desktop or Code) can answer propagation questions using 11 specialized tools — no SQL required.
+## Install
 
-**Example questions:**
-- "When is 20m open from Idaho to Europe?"
-- "How does solar flux affect 15m propagation?"
-- "Show me 10m paths at 03z where both stations are in the dark"
-- "Compare WSPR and RBN observations on 20m FN31 to JO51"
-- "What are the current band conditions? I'm heading out for POTA."
-- "What were the solar conditions during the February 2026 geomagnetic storm?"
+```bash
+pip install ionis-mcp
+ionis-download --bundle minimal   # ~430 MB; see Datasets for the other bundles
+```
 
-## Datasets
+## Tools
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `list_datasets` | Available datasets with row counts and file sizes | — |
+| `query_signatures` | Signature lookup filtered by source, band, grid, hour, month | source, band, tx_grid, rx_grid, hour, month |
+| `band_openings` | Hour-by-hour propagation profile for a path on one band | tx_grid, rx_grid, band |
+| `path_analysis` | A path across all bands, hours, months and sources | tx_grid, rx_grid, source |
+| `solar_correlation` | Solar flux effect on propagation, by SFI bracket | band, tx_grid, rx_grid |
+| `grid_info` | Maidenhead grid decode with solar elevation | grid, hour, month |
+| `compare_sources` | Cross-dataset comparison (WSPR vs RBN vs contest vs PSKR) | tx_grid, rx_grid, band |
+| `dark_hour_analysis` | Paths by solar geometry: both-day, cross-terminator, both-dark | band, hour, month |
+| `solar_history` | Historical solar indices for a date range | start_date, end_date, resolution |
+| `band_summary` | Band overview: hour distribution, top grid pairs, distances | band, source |
+| `current_conditions` | Live forecast: SFI, Kp, solar wind, band outlook, POTA/SOTA tips | qth_grid |
+| `get_version_info` | Service version + upstream spec version (fleet identity attestation) | — |
+
+## What is IONIS-AI?
+
+IONIS-AI is an open-source machine learning system for predicting HF (shortwave) radio propagation. Its datasets are curated from the world's largest amateur radio telemetry networks and distributed as SQLite files on [SourceForge](https://sourceforge.net/projects/ionis-ai/). ionis-mcp lets an assistant answer propagation questions from them, no SQL required.
 
 | Source | Signatures | Raw Observations | SNR Type | Years |
 |--------|-----------|-----------------|----------|-------|
@@ -31,7 +48,7 @@ IONIS (Ionospheric Neural Inference System) is an open-source machine learning s
 
 All signature tables share an identical 13-column schema (tx\_grid, rx\_grid, band, hour, month, median\_snr, spot\_count, snr\_std, reliability, avg\_sfi, avg\_kp, avg\_distance, avg\_azimuth) — ready for cross-source analysis.
 
-## Quick Start
+## Datasets
 
 ```bash
 # 1. Install
@@ -42,12 +59,12 @@ ionis-download --bundle minimal          # ~430 MB — contest + solar + grids
 ionis-download --bundle recommended      # ~1.1 GB — adds PSKR + DSCOVR
 ionis-download --bundle full             # ~15 GB  — all 9 datasets
 
-# 3. Configure Claude (see below) and restart — tools appear automatically
+# 3. Configure your MCP client (see Quick Start) and restart
 ```
 
 That's it. Both `ionis-download` and `ionis-mcp` use the same default data directory. No environment variables needed.
 
-### Default Data Directory
+### Default data directory
 
 | Platform | Location |
 |----------|----------|
@@ -66,7 +83,7 @@ ionis-mcp --data-dir /path/to/my/data
 export IONIS_DATA_DIR=/path/to/my/data
 ```
 
-### Download Individual Datasets
+### Download individual datasets
 
 ```bash
 # Pick specific datasets
@@ -79,114 +96,7 @@ ionis-download --list
 ionis-download --bundle minimal --force
 ```
 
-## Configure Your MCP Client
-
-ionis-mcp works with any MCP-compatible client. Add the server config and restart — tools appear automatically.
-
-If you downloaded data to a custom location, add `"env": { "IONIS_DATA_DIR": "/path/to/data" }` to any config below.
-
-### Claude Desktop
-
-Add to `claude_desktop_config.json` (`~/Library/Application Support/Claude/` on macOS, `%APPDATA%\Claude\` on Windows):
-
-```json
-{
-  "mcpServers": {
-    "ionis": {
-      "command": "ionis-mcp"
-    }
-  }
-}
-```
-
-### Claude Code
-
-Add to `.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "ionis": {
-      "command": "ionis-mcp"
-    }
-  }
-}
-```
-
-### ChatGPT Desktop
-
-ChatGPT supports MCP via the [OpenAI Agents SDK](https://developers.openai.com/api/docs/mcp/). Add under Settings > Apps & Connectors, or configure in your agent definition:
-
-```json
-{
-  "mcpServers": {
-    "ionis": {
-      "command": "ionis-mcp"
-    }
-  }
-}
-```
-
-### Cursor
-
-Add to `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global):
-
-```json
-{
-  "mcpServers": {
-    "ionis": {
-      "command": "ionis-mcp"
-    }
-  }
-}
-```
-
-### VS Code / GitHub Copilot
-
-Add to `.vscode/mcp.json` in your workspace:
-
-```json
-{
-  "servers": {
-    "ionis": {
-      "command": "ionis-mcp"
-    }
-  }
-}
-```
-
-### Gemini CLI
-
-Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
-
-```json
-{
-  "mcpServers": {
-    "ionis": {
-      "command": "ionis-mcp"
-    }
-  }
-}
-```
-
-## Tools
-
-| Tool | Purpose |
-|------|---------|
-| `list_datasets` | Show available datasets with row counts and file sizes |
-| `query_signatures` | Flexible signature lookup — filter by source, band, grid, hour, month |
-| `band_openings` | Hour-by-hour propagation profile for a path on a specific band |
-| `path_analysis` | Complete path analysis across all bands, hours, months, and sources |
-| `solar_correlation` | SFI effect on propagation — grouped by solar flux bracket |
-| `grid_info` | Maidenhead grid decode with solar elevation computation |
-| `compare_sources` | Cross-dataset comparison (WSPR vs RBN vs Contest vs PSKR) |
-| `dark_hour_analysis` | Classify paths by solar geometry — both-day, cross-terminator, both-dark |
-| `solar_history` | Historical solar indices for any date range |
-| `band_summary` | Band overview — hour distribution, top grid pairs, distance range |
-| `current_conditions` | Live propagation forecast — SFI, Kp, solar wind, band outlook, POTA/SOTA tips |
-| `get_version_info` | Service version + upstream dataset version (fleet identity attestation) |
-
-## Data Directory Layout
+### Data directory layout
 
 ```
 ~/.ionis-mcp/data/                  (or $IONIS_DATA_DIR)
@@ -206,28 +116,144 @@ Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
 
 The server works with whatever datasets are present. Missing datasets degrade gracefully — tools that need unavailable data return clear messages instead of errors.
 
+## Quick Start
+
+### Configure your MCP client
+
+ionis-mcp works with any MCP-compatible client. Add the server config and restart. The tools appear automatically.
+
+If you downloaded data to a custom location, add `"env": { "IONIS_DATA_DIR": "/path/to/data" }` to any config below.
+
+#### Claude Desktop
+
+Add to `claude_desktop_config.json` (`~/Library/Application Support/Claude/` on macOS, `%APPDATA%\Claude\` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "ionis": {
+      "command": "ionis-mcp"
+    }
+  }
+}
+```
+
+#### Claude Code
+
+Add to `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "ionis": {
+      "command": "ionis-mcp"
+    }
+  }
+}
+```
+
+#### ChatGPT Desktop
+
+ChatGPT supports MCP via the [OpenAI Agents SDK](https://developers.openai.com/api/docs/mcp/). Add under Settings > Apps & Connectors, or configure in your agent definition:
+
+```json
+{
+  "mcpServers": {
+    "ionis": {
+      "command": "ionis-mcp"
+    }
+  }
+}
+```
+
+#### Cursor
+
+Add to `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global):
+
+```json
+{
+  "mcpServers": {
+    "ionis": {
+      "command": "ionis-mcp"
+    }
+  }
+}
+```
+
+#### VS Code / GitHub Copilot
+
+Add to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "ionis": {
+      "command": "ionis-mcp"
+    }
+  }
+}
+```
+
+#### Gemini CLI
+
+Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "ionis": {
+      "command": "ionis-mcp"
+    }
+  }
+}
+```
+
+### Ask questions
+
+> "When is 20m open from Idaho to Europe?"
+
+> "How does solar flux affect 15m propagation?"
+
+> "Show me 10m paths at 03z where both stations are in the dark"
+
+> "Compare WSPR and RBN observations on 20m FN31 to JO51"
+
+> "What are the current band conditions? I'm heading out for POTA."
+
+> "What were the solar conditions during the February 2026 geomagnetic storm?"
+
 ## Architecture
 
 - **Transport**: stdio (Claude Desktop / Claude Code) or streamable-http (MCP Inspector)
 - **Database**: Read-only `sqlite3` connections (`?mode=ro`) — no writes, ever
 - **Query safety**: All queries use parameterized SQL (`?` placeholders), result limits enforced server-side (max 1000 rows)
 - **Grid lookup**: 31.7K Maidenhead grids loaded into memory at startup (~2 MB) for instant lat/lon resolution
-- **Solar geometry**: Pure Python solar elevation computation (same algorithm as the IONIS training pipeline) — classifies endpoints as day/twilight/night for propagation context
+- **Solar geometry**: Pure Python solar elevation computation (same algorithm as the IONIS-AI training pipeline) — classifies endpoints as day/twilight/night for propagation context
 - **Cross-source queries**: Each SQLite database opened separately, results merged in Python with source labels
 
-## Testing with MCP Inspector
+## MCP Inspector
 
 ```bash
 ionis-mcp --transport streamable-http --port 8000
-# Open http://localhost:8000/mcp in browser
+```
+
+Then open the MCP Inspector at `http://localhost:8000/mcp`.
+
+## Development
+
+```bash
+git clone https://github.com/qso-graph/ionis-mcp.git
+cd ionis-mcp
+pip install -e .
+pytest
 ```
 
 ## Related Projects
 
 | Repository | Purpose |
 |-----------|---------|
-| [ionis-validate](https://pypi.org/project/ionis-validate/) | IONIS model validation suite (PyPI) |
-| [IONIS Datasets](https://sourceforge.net/projects/ionis-ai/) | Distributed dataset files (SourceForge) |
+| [ionis-validate](https://pypi.org/project/ionis-validate/) | IONIS-AI model validation suite (PyPI) |
+| [IONIS-AI datasets](https://sourceforge.net/projects/ionis-ai/) | Distributed dataset files (SourceForge) |
 
 ## License
 
@@ -235,6 +261,6 @@ GPL-3.0-or-later
 
 ## Citation
 
-If you use the IONIS datasets in research, please cite:
+If you use the IONIS-AI datasets in research, please cite:
 
 > Beam, G. (KI7MT). *IONIS: Ionospheric Neural Inference System — HF Propagation Prediction Datasets.* SourceForge, 2026. https://sourceforge.net/projects/ionis-ai/

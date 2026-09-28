@@ -1,7 +1,7 @@
 [project]
 name = "ionis-mcp"
-version = "1.2.9"
-description = "MCP server for IONIS HF propagation analytics — 175M signatures from WSPR, RBN, Contest, DXpedition, and PSK Reporter"
+version = "1.2.10"
+description = "MCP server for IONIS-AI HF propagation analytics — 175M signatures from WSPR, RBN, Contest, DXpedition, and PSK Reporter"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 authors = [{name = "Greg Beam, KI7MT", email = "ki7mt@yahoo.com"}]
