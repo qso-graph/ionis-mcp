@@ -11,9 +11,11 @@ Part of the [qso-graph](https://qso-graph.io/) project. **No authentication requ
 ## Install
 
 ```bash
-pip install ionis-mcp
+uv tool install ionis-mcp         # puts ionis-mcp and ionis-download on your PATH
 ionis-download --bundle minimal   # ~430 MB; see Datasets for the other bundles
 ```
+
+Or with pip: `pip install ionis-mcp`.
 
 ## Tools
 
@@ -52,7 +54,7 @@ All signature tables share an identical 13-column schema (tx\_grid, rx\_grid, ba
 
 ```bash
 # 1. Install
-pip install ionis-mcp
+uv tool install ionis-mcp
 
 # 2. Download datasets (to default location: ~/.ionis-mcp/data/)
 ionis-download --bundle minimal          # ~430 MB — contest + solar + grids
@@ -132,7 +134,8 @@ Add to `claude_desktop_config.json` (`~/Library/Application Support/Claude/` on 
 {
   "mcpServers": {
     "ionis": {
-      "command": "ionis-mcp"
+      "command": "uvx",
+      "args": ["ionis-mcp"]
     }
   }
 }
@@ -146,7 +149,8 @@ Add to `.claude/settings.json`:
 {
   "mcpServers": {
     "ionis": {
-      "command": "ionis-mcp"
+      "command": "uvx",
+      "args": ["ionis-mcp"]
     }
   }
 }
@@ -160,7 +164,8 @@ ChatGPT supports MCP via the [OpenAI Agents SDK](https://developers.openai.com/a
 {
   "mcpServers": {
     "ionis": {
-      "command": "ionis-mcp"
+      "command": "uvx",
+      "args": ["ionis-mcp"]
     }
   }
 }
@@ -174,7 +179,8 @@ Add to `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global):
 {
   "mcpServers": {
     "ionis": {
-      "command": "ionis-mcp"
+      "command": "uvx",
+      "args": ["ionis-mcp"]
     }
   }
 }
@@ -188,7 +194,8 @@ Add to `.vscode/mcp.json` in your workspace:
 {
   "servers": {
     "ionis": {
-      "command": "ionis-mcp"
+      "command": "uvx",
+      "args": ["ionis-mcp"]
     }
   }
 }
@@ -202,11 +209,14 @@ Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
 {
   "mcpServers": {
     "ionis": {
-      "command": "ionis-mcp"
+      "command": "uvx",
+      "args": ["ionis-mcp"]
     }
   }
 }
 ```
+
+Installed with pip instead? Use `"command": "ionis-mcp"` in any config above.
 
 ### Ask questions
 
@@ -244,8 +254,8 @@ Then open the MCP Inspector at `http://localhost:8000/mcp`.
 ```bash
 git clone https://github.com/qso-graph/ionis-mcp.git
 cd ionis-mcp
-pip install -e .
-pytest
+uv sync --group dev
+uv run pytest
 ```
 
 ## Related Projects
