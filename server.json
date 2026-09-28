@@ -6,12 +6,12 @@
     "url": "https://github.com/qso-graph/ionis-mcp",
     "source": "github"
   },
-  "version": "1.2.7",
+  "version": "1.2.10",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "ionis-mcp",
-      "version": "1.2.7",
+      "version": "1.2.10",
       "transport": { "type": "stdio" }
     }
   ],
