@@ -2,7 +2,7 @@
 # ionis-mcp
 
 [![PyPI](https://img.shields.io/pypi/v/ionis-mcp?label=PyPI&color=blue)](https://pypi.org/project/ionis-mcp/)
-[![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0%2Fservers%3Fsearch%3Dionis-mcp&query=%24.servers%5B0%5D.server.version&label=MCP%20Registry&color=blue)](https://registry.modelcontextprotocol.io/v0/servers?search=ionis-mcp)
+[![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0%2Fservers%3Fsearch%3Dio.github.qso-graph%2Fionis-mcp%26version%3Dlatest&query=%24.servers%5B0%5D.server.version&label=MCP%20Registry&color=blue)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.qso-graph/ionis-mcp&version=latest)
 
 MCP server for HF radio propagation analytics on the [IONIS-AI](https://ionis-ai.com/) datasets — 175M+ aggregated signatures derived from 14 billion WSPR, RBN, contest, DXpedition and PSK Reporter observations, 2005–2026 — through any MCP-compatible AI assistant.
 
