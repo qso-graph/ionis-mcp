@@ -61,6 +61,19 @@ DATASET_REGISTRY = {
 # Signature datasets (all share the same 13-column schema)
 SIGNATURE_SOURCES = ["wspr", "rbn", "contest", "dxpedition", "pskr"]
 
+# Plausible 10.7 cm solar flux (#17). Since 2000 the daily value has stayed between 64 and
+# about 340. The published datasets also carry 0 and single-day spikes of up to 938.6
+# (2011-03-07, between 142 and 167), and every signature averaged over such a day inherits
+# them. Analyses treat an avg_sfi outside this range as unknown and say how many rows that was.
+SFI_MIN = 50.0
+SFI_MAX = 400.0
+
+
+def plausible_sfi(value: float | None) -> bool:
+    """True when an SFI value is within the plausible range."""
+    return value is not None and SFI_MIN <= value <= SFI_MAX
+
+
 SIGNATURE_COLUMNS = [
     "tx_grid_4", "rx_grid_4", "band", "hour", "month",
     "median_snr", "spot_count", "snr_std", "reliability",
@@ -200,13 +213,15 @@ class DatabaseManager:
                             "hour": h, "median_snr": 0.0, "total_spots": 0,
                             "reliability": 0.0, "avg_sfi": 0.0, "sources": [],
                             "_snr_weighted": 0.0, "_sfi_weighted": 0.0,
-                            "_rel_max": 0.0,
+                            "_sfi_spots": 0, "_rel_max": 0.0,
                         }
                     entry = hourly[h]
                     spots = row[2]
                     entry["total_spots"] += spots
                     entry["_snr_weighted"] += row[1] * spots
-                    entry["_sfi_weighted"] += row[4] * spots if row[4] else 0
+                    if plausible_sfi(row[4]):
+                        entry["_sfi_weighted"] += row[4] * spots
+                        entry["_sfi_spots"] += spots
                     entry["_rel_max"] = max(entry["_rel_max"], row[3])
                     entry["sources"].append(src)
             except (FileNotFoundError, KeyError):
@@ -219,10 +234,11 @@ class DatabaseManager:
                 entry = hourly[h]
                 total = entry["total_spots"]
                 entry["median_snr"] = round(entry["_snr_weighted"] / total, 1) if total > 0 else 0.0
-                entry["avg_sfi"] = round(entry["_sfi_weighted"] / total, 1) if total > 0 else 0.0
+                sfi_spots = entry["_sfi_spots"]
+                entry["avg_sfi"] = round(entry["_sfi_weighted"] / sfi_spots, 1) if sfi_spots > 0 else None
                 entry["reliability"] = round(entry["_rel_max"], 3)
                 # Clean up internal fields
-                del entry["_snr_weighted"], entry["_sfi_weighted"], entry["_rel_max"]
+                del entry["_snr_weighted"], entry["_sfi_weighted"], entry["_sfi_spots"], entry["_rel_max"]
                 result.append(entry)
             else:
                 result.append({
@@ -301,6 +317,7 @@ class DatabaseManager:
         hour_dist: dict[int, int] = {}
         top_pairs: list[tuple] = []
         sfi_range = [999.0, 0.0]
+        sfi_excluded = 0
         dist_range = [99999, 0]
 
         for src in sources:
@@ -310,9 +327,13 @@ class DatabaseManager:
 
                 # Totals
                 row = conn.execute(
-                    f"SELECT COUNT(*), SUM(spot_count), MIN(avg_sfi), MAX(avg_sfi), "
-                    f"MIN(avg_distance), MAX(avg_distance) "
-                    f"FROM {table} WHERE band = ?", (band,)
+                    f"SELECT COUNT(*), SUM(spot_count), "
+                    f"MIN(CASE WHEN avg_sfi BETWEEN ? AND ? THEN avg_sfi END), "
+                    f"MAX(CASE WHEN avg_sfi BETWEEN ? AND ? THEN avg_sfi END), "
+                    f"MIN(avg_distance), MAX(avg_distance), "
+                    f"SUM(CASE WHEN avg_sfi BETWEEN ? AND ? THEN 0 ELSE 1 END) "
+                    f"FROM {table} WHERE band = ?",
+                    (SFI_MIN, SFI_MAX) * 3 + (band,),
                 ).fetchone()
                 if row and row[0]:
                     total_sigs += row[0]
@@ -325,6 +346,7 @@ class DatabaseManager:
                         dist_range[0] = row[4]
                     if row[5] and row[5] > dist_range[1]:
                         dist_range[1] = row[5]
+                    sfi_excluded += row[6] or 0
 
                 # Hour distribution
                 hours = conn.execute(
@@ -357,6 +379,7 @@ class DatabaseManager:
                 for p in top_pairs[:10]
             ],
             "sfi_range": sfi_range if sfi_range[0] < 999 else [None, None],
+            "sfi_excluded": sfi_excluded,
             "distance_range_km": dist_range if dist_range[0] < 99999 else [None, None],
         }
 
@@ -371,13 +394,14 @@ class DatabaseManager:
         sources = self._resolve_sources(source)
 
         # SFI brackets
+        # The last bracket includes SFI_MAX; outside SFI_MIN..SFI_MAX is unknown (#17).
         brackets = [
-            (0, 80, "< 80"),
+            (SFI_MIN, 80, "50-80"),
             (80, 100, "80-100"),
             (100, 120, "100-120"),
             (120, 150, "120-150"),
             (150, 200, "150-200"),
-            (200, 999, "200+"),
+            (200, SFI_MAX, "200-400"),
         ]
 
         result = []
@@ -392,7 +416,8 @@ class DatabaseManager:
                     conn = self._get_connection(src)
                     table = DATASET_REGISTRY[src][1]
 
-                    where = ["band = ?", "avg_sfi >= ?", "avg_sfi < ?"]
+                    upper = "avg_sfi <= ?" if hi == SFI_MAX else "avg_sfi < ?"
+                    where = ["band = ?", "avg_sfi >= ?", upper]
                     params: list = [band, lo, hi]
 
                     if tx_grid:
@@ -425,6 +450,36 @@ class DatabaseManager:
                 "avg_reliability": round(rel_weighted / total_spots, 3) if total_spots > 0 else None,
             })
         return result
+
+    def count_sfi_excluded(
+        self,
+        band: int,
+        tx_grid: str | None = None,
+        rx_grid: str | None = None,
+        source: str = "all",
+    ) -> int:
+        """Rows for this band (and path) whose avg_sfi is outside the plausible range."""
+        excluded = 0
+        for src in self._resolve_sources(source):
+            try:
+                conn = self._get_connection(src)
+                table = DATASET_REGISTRY[src][1]
+                where = ["band = ?", "NOT (avg_sfi BETWEEN ? AND ?) OR avg_sfi IS NULL"]
+                params: list = [band, SFI_MIN, SFI_MAX]
+                if tx_grid:
+                    where.append("tx_grid_4 = ?")
+                    params.append(tx_grid.upper())
+                if rx_grid:
+                    where.append("rx_grid_4 = ?")
+                    params.append(rx_grid.upper())
+                row = conn.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE {' AND '.join(f'({w})' for w in where)}",
+                    params,
+                ).fetchone()
+                excluded += row[0] if row else 0
+            except (FileNotFoundError, KeyError):
+                continue
+        return excluded
 
     def query_compare_sources(
         self,
