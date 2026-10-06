@@ -171,8 +171,8 @@ class TestSolarCorrelation:
     def test_bracket_labels(self, db_manager):
         brackets = db_manager.query_solar_correlation(107, source="wspr")
         labels = [b["sfi_bracket"] for b in brackets]
-        assert "< 80" in labels
-        assert "200+" in labels
+        assert "50-80" in labels
+        assert "200-400" in labels
 
     def test_with_grid_filter(self, db_manager):
         brackets = db_manager.query_solar_correlation(

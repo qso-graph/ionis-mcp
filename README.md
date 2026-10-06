@@ -12,7 +12,7 @@ Part of the [qso-graph](https://qso-graph.io/) project. **No authentication requ
 
 ```bash
 uv tool install ionis-mcp         # puts ionis-mcp and ionis-download on your PATH
-ionis-download --bundle minimal   # ~430 MB; see Datasets for the other bundles
+ionis-download --bundle minimal   # 454 MB; see Datasets for the other bundles
 ```
 
 Or with pip: `pip install ionis-mcp`.
@@ -57,9 +57,9 @@ All signature tables share an identical 13-column schema (tx\_grid, rx\_grid, ba
 uv tool install ionis-mcp
 
 # 2. Download datasets (to default location: ~/.ionis-mcp/data/)
-ionis-download --bundle minimal          # ~430 MB — contest + solar + grids
-ionis-download --bundle recommended      # ~1.1 GB — adds PSKR + DSCOVR
-ionis-download --bundle full             # ~15 GB  — all 9 datasets
+ionis-download --bundle minimal          # 454 MB  — contest + solar + grids
+ionis-download --bundle recommended      # 1.1 GB  — adds PSKR + DSCOVR
+ionis-download --bundle full             # 16.2 GB — all 9 datasets
 
 # 3. Configure your MCP client (see Quick Start) and restart
 ```
@@ -98,22 +98,24 @@ ionis-download --list
 ionis-download --bundle minimal --force
 ```
 
+If a download is interrupted (a dropped connection, Ctrl-C), run the same command again: it picks up where it stopped. Brief network errors are retried on their own. Sizes are in MB and GB (1 MB = 1,000,000 bytes).
+
 ### Data directory layout
 
 ```
 ~/.ionis-mcp/data/                  (or $IONIS_DATA_DIR)
 ├── propagation/
-│   ├── wspr-signatures/wspr_signatures_v2.sqlite      (8.4 GB, 93.6M rows)
-│   ├── rbn-signatures/rbn_signatures.sqlite            (5.6 GB, 67.3M rows)
-│   ├── contest-signatures/contest_signatures.sqlite    (424 MB, 5.7M rows)
+│   ├── wspr-signatures/wspr_signatures_v2.sqlite      (9.1 GB, 93.6M rows)
+│   ├── rbn-signatures/rbn_signatures.sqlite            (6.0 GB, 67.3M rows)
+│   ├── contest-signatures/contest_signatures.sqlite    (445 MB, 5.7M rows)
 │   ├── dxpedition-signatures/dxpedition_signatures.sqlite (22 MB, 260K rows)
-│   └── pskr-signatures/pskr_signatures.sqlite          (606 MB, 8.4M rows)
+│   └── pskr-signatures/pskr_signatures.sqlite          (635 MB, 8.4M rows)
 ├── solar/
-│   ├── solar-indices/solar_indices.sqlite               (7.7 MB, 76.7K rows)
-│   └── dscovr/dscovr_l1.sqlite                         (2.9 MB, 23K rows)
+│   ├── solar-indices/solar_indices.sqlite               (8.0 MB, 76.7K rows)
+│   └── dscovr/dscovr_l1.sqlite                         (3.0 MB, 23K rows)
 └── tools/
     ├── grid-lookup/grid_lookup.sqlite                   (1.1 MB, 31.7K rows)
-    └── balloon-callsigns/balloon_callsigns_v2.sqlite    (116 KB, 1.5K rows)
+    └── balloon-callsigns/balloon_callsigns_v2.sqlite    (0.1 MB, 1.5K rows)
 ```
 
 The server works with whatever datasets are present. Missing datasets degrade gracefully — tools that need unavailable data return clear messages instead of errors.
