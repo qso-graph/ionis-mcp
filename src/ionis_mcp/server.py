@@ -17,7 +17,7 @@ import sys
 from fastmcp import FastMCP
 
 from . import __spec_version__, __version__, default_data_dir
-from .database import DatabaseManager, SIGNATURE_SOURCES
+from .database import SFI_MAX, SFI_MIN, SIGNATURE_SOURCES, DatabaseManager, plausible_sfi
 from .grids import (
     GridLookup,
     band_name,
@@ -54,6 +54,37 @@ def _require_db() -> DatabaseManager:
     if db is None:
         raise RuntimeError("Database not initialized. Set IONIS_DATA_DIR.")
     return db
+
+
+def _missing_data(mgr: DatabaseManager, source: str) -> str | None:
+    """Why a signature tool can't answer, or None when it can (#13).
+
+    No dataset installed must never look like "no propagation": an empty table from
+    missing data reads as a closed band."""
+    if source != "all" and source not in SIGNATURE_SOURCES:
+        return f"Unknown source '{source}'. Use one of: {', '.join(SIGNATURE_SOURCES)}, or all."
+    if source == "all":
+        if mgr.available_sources():
+            return None
+        return (
+            f"No propagation datasets are installed in {mgr.data_dir}, so there is nothing to "
+            "answer from (this is not a closed band). Download some first, for example:\n"
+            "  ionis-download --bundle minimal\n"
+            f"  ionis-download --datasets {','.join(SIGNATURE_SOURCES)}\n"
+            "list_datasets shows what is installed."
+        )
+    if mgr.is_available(source):
+        return None
+    return (
+        f"The {source} dataset is not installed in {mgr.data_dir}, so there is nothing to "
+        f"answer from. Download it with:\n  ionis-download --datasets {source}\n"
+        "list_datasets shows what is installed."
+    )
+
+
+def _sfi(value: float | None) -> str:
+    """An SFI value for display; outside the plausible range it is unknown (#17)."""
+    return f"{value:.0f}" if plausible_sfi(value) else "—"
 
 
 def _format_number(n: int | float) -> str:
@@ -164,6 +195,8 @@ def query_signatures(
         Matching signatures with all columns plus source label.
     """
     mgr = _require_db()
+    if missing := _missing_data(mgr, source):
+        return missing
     limit = min(max(1, limit), 1000)
 
     rows = mgr.query_signatures(
@@ -195,7 +228,7 @@ def query_signatures(
             f"| {r.get('source', '?')} | {r.get('tx_grid_4', '')} | {r.get('rx_grid_4', '')} "
             f"| {b} | {r.get('hour', '')}z | {r.get('month', '')} "
             f"| {r.get('median_snr', ''):.1f} | {_format_number(r.get('spot_count', 0))} "
-            f"| {r.get('reliability', 0):.3f} | {r.get('avg_sfi', 0):.0f} "
+            f"| {r.get('reliability', 0):.3f} | {_sfi(r.get('avg_sfi'))} "
             f"| {r.get('avg_kp', 0):.1f} | {_format_number(r.get('avg_distance', 0))} km |"
         )
 
@@ -226,6 +259,8 @@ def band_openings(
         24-row hourly profile with SNR, spots, reliability, solar geometry.
     """
     mgr = _require_db()
+    if missing := _missing_data(mgr, source):
+        return missing
 
     tx_valid = validate_grid(tx_grid)
     rx_valid = validate_grid(rx_grid)
@@ -258,7 +293,7 @@ def band_openings(
             snr_str = f"{entry['median_snr']:.1f}"
             spots_str = _format_number(entry["total_spots"])
             rel_str = f"{entry['reliability']:.3f}"
-            sfi_str = f"{entry['avg_sfi']:.0f}" if entry["avg_sfi"] else "—"
+            sfi_str = _sfi(entry["avg_sfi"])
         else:
             snr_str = "—"
             spots_str = "0"
@@ -293,6 +328,8 @@ def path_analysis(
         source: Dataset source or "all"
     """
     mgr = _require_db()
+    if missing := _missing_data(mgr, source):
+        return missing
 
     tx_valid = validate_grid(tx_grid)
     rx_valid = validate_grid(rx_grid)
@@ -421,8 +458,11 @@ def solar_correlation(
         source: Dataset source (default: "wspr")
     """
     mgr = _require_db()
+    if missing := _missing_data(mgr, source):
+        return missing
 
     brackets = mgr.query_solar_correlation(band, tx_grid, rx_grid, source)
+    excluded = mgr.count_sfi_excluded(band, tx_grid, rx_grid, source)
 
     scope = "Global"
     if tx_grid and rx_grid:
@@ -444,6 +484,12 @@ def solar_correlation(
         lines.append(
             f"| {b['sfi_bracket']} | {_format_number(b['signatures'])} "
             f"| {_format_number(b['total_spots'])} | {snr_str} | {rel_str} |"
+        )
+
+    if excluded:
+        lines.append(
+            f"\n{_format_number(excluded)} signatures with an SFI outside {SFI_MIN:.0f}–{SFI_MAX:.0f} "
+            "(bad values in the dataset) are left out."
         )
 
     lines.append("\n*Higher SFI generally helps bands above 30m (10-20m) due to F-layer "
@@ -532,6 +578,8 @@ def compare_sources(
         hour: Specific UTC hour (omit for all hours)
     """
     mgr = _require_db()
+    if missing := _missing_data(mgr, "all"):
+        return missing
 
     tx_valid = validate_grid(tx_grid)
     rx_valid = validate_grid(rx_grid)
@@ -558,7 +606,7 @@ def compare_sources(
         lines.append(
             f"| {r['source']} | {r['hour']:02d}z | {r['median_snr']:.1f} "
             f"| {_format_number(r['spot_count'])} | {r['reliability']:.3f} "
-            f"| {r['avg_sfi']:.0f} | {r['avg_kp']:.1f} |"
+            f"| {_sfi(r['avg_sfi'])} | {r['avg_kp']:.1f} |"
         )
 
     # Summary by source
@@ -604,6 +652,8 @@ def dark_hour_analysis(
         min_spots: Minimum spot count filter (default: 10)
     """
     mgr = _require_db()
+    if missing := _missing_data(mgr, source):
+        return missing
 
     # Get paths for this band
     all_paths = mgr.query_dark_paths(band, source, min_spots)
@@ -697,7 +747,10 @@ def solar_history(
     """
     mgr = _require_db()
     if not mgr.is_available("solar"):
-        return "Solar indices dataset not available. Download solar_indices.sqlite from SourceForge."
+        return (
+            f"The solar dataset is not installed in {mgr.data_dir}. Download it with:\n"
+            "  ionis-download --datasets solar"
+        )
 
     rows = mgr.query_solar_conditions(start_date, end_date, resolution)
 
@@ -749,6 +802,8 @@ def band_summary(
         source: Dataset source or "all"
     """
     mgr = _require_db()
+    if missing := _missing_data(mgr, source):
+        return missing
     stats = mgr.query_band_global(band, source)
 
     if stats["total_signatures"] == 0:
@@ -763,6 +818,11 @@ def band_summary(
     if stats["sfi_range"][0] is not None:
         lines.append(
             f"**SFI range**: {stats['sfi_range'][0]:.0f} – {stats['sfi_range'][1]:.0f}"
+        )
+    if stats["sfi_excluded"]:
+        lines.append(
+            f"**SFI unknown**: {_format_number(stats['sfi_excluded'])} signatures with an SFI outside "
+            f"{SFI_MIN:.0f}–{SFI_MAX:.0f} (bad values in the dataset) are left out of the SFI range"
         )
     if stats["distance_range_km"][0] is not None:
         lines.append(
