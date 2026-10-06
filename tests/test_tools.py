@@ -152,8 +152,8 @@ class TestSolarCorrelation:
     def test_returns_brackets(self):
         result = server_mod.solar_correlation(107, source="wspr")
         assert "SFI Correlation" in result
-        assert "< 80" in result
-        assert "200+" in result
+        assert "50-80" in result
+        assert "200-400" in result
 
     def test_shows_band_name(self):
         result = server_mod.solar_correlation(107)
