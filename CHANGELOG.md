@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   v1.0 datasets: WSPR 63,715 signatures (0.07%), RBN 51,204 (0.08%), PSKR 92,609 (1.1%),
   DXpedition 149 (0.06%), contest none.
 - PyPI: a Documentation link (qso-graph/.github#15).
+- **ionis-download resumes and retries** (#14). It downloads to `<file>.part` and, after a dropped
+  connection or Ctrl-C, picks up where it stopped (an HTTP Range request) instead of starting again
+  from zero. Timeouts, dropped connections and server errors (5xx) are retried up to 5 times with
+  backoff. The file is moved into place only after the database check passes. An error page or a
+  404 is not retried, and a redirect away from HTTPS is refused.
+- **ionis-download progress no longer floods logs** (#15). Off a terminal it prints a line every
+  10% (or every 30 seconds); on a terminal the live line is redrawn at most twice a second.
+- **ionis-download sizes are right** (#16). They were MiB labelled MB, and the bundle sizes were
+  hand-written. They are now exact decimal MB/GB from the v1.0 files: WSPR 9.1 GB (was "8,639 MB"),
+  the full set 16.2 GB (was "~15 GB"), minimal 454 MB (was "~430 MB"). The README matches.
 - CI: the release flow (qso-graph/.github TEMPLATES.md). Work lands on `develop`; a release is a
   PR from `develop` into `main`, and merging it publishes to PyPI and the MCP Registry, verifies both
   and tags the release. CI runs on `develop` too, and PRs into `main` must come from `develop` or a
