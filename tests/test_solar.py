@@ -7,7 +7,6 @@ from ionis_mcp.solar import (
     solar_elevation_deg,
 )
 
-
 # ── solar_elevation_deg ──────────────────────────────────────────────────────
 
 class TestSolarElevation:

@@ -7,7 +7,7 @@ connections, and provides parameterized query helpers.
 import os
 import sqlite3
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import Any
 
 # Dataset registry: key → (subpath, table_name, description)
 DATASET_REGISTRY = {
@@ -159,7 +159,7 @@ class DatabaseManager:
         month: int | None = None,
         min_spots: int = 5,
         limit: int = 100,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Query signature tables with filters. Returns list of dicts."""
         sources = self._resolve_sources(source)
         if not sources:
@@ -187,14 +187,14 @@ class DatabaseManager:
         rx_grid: str,
         band: int,
         source: str = "all",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get hourly propagation profile for a path+band."""
         sources = self._resolve_sources(source)
         if not sources:
             return []
 
         # Aggregate across sources by hour
-        hourly: dict[int, dict] = {}
+        hourly: dict[int, dict[str, Any]] = {}
         for src in sources:
             try:
                 conn = self._get_connection(src)
@@ -252,7 +252,7 @@ class DatabaseManager:
         tx_grid: str,
         rx_grid: str,
         source: str = "all",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get all signatures for a grid pair across all bands/hours."""
         sources = self._resolve_sources(source)
         results = []
@@ -276,7 +276,7 @@ class DatabaseManager:
         start_date: str,
         end_date: str,
         resolution: str = "daily",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Query historical solar indices."""
         if not self.is_available("solar"):
             return []
@@ -309,13 +309,13 @@ class DatabaseManager:
         self,
         band: int,
         source: str = "all",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get global statistics for a band across all sources."""
         sources = self._resolve_sources(source)
         total_sigs = 0
         total_spots = 0
         hour_dist: dict[int, int] = {}
-        top_pairs: list[tuple] = []
+        top_pairs: list[tuple[Any, ...]] = []
         sfi_range = [999.0, 0.0]
         sfi_excluded = 0
         dist_range = [99999, 0]
@@ -389,7 +389,7 @@ class DatabaseManager:
         tx_grid: str | None = None,
         rx_grid: str | None = None,
         source: str = "wspr",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Group signatures by SFI bracket and compute stats."""
         sources = self._resolve_sources(source)
 
@@ -418,7 +418,7 @@ class DatabaseManager:
 
                     upper = "avg_sfi <= ?" if hi == SFI_MAX else "avg_sfi < ?"
                     where = ["band = ?", "avg_sfi >= ?", upper]
-                    params: list = [band, lo, hi]
+                    params: list[Any] = [band, lo, hi]
 
                     if tx_grid:
                         where.append("tx_grid_4 = ?")
@@ -465,7 +465,7 @@ class DatabaseManager:
                 conn = self._get_connection(src)
                 table = DATASET_REGISTRY[src][1]
                 where = ["band = ?", "NOT (avg_sfi BETWEEN ? AND ?) OR avg_sfi IS NULL"]
-                params: list = [band, SFI_MIN, SFI_MAX]
+                params: list[Any] = [band, SFI_MIN, SFI_MAX]
                 if tx_grid:
                     where.append("tx_grid_4 = ?")
                     params.append(tx_grid.upper())
@@ -487,7 +487,7 @@ class DatabaseManager:
         rx_grid: str,
         band: int,
         hour: int | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Compare signatures across all available sources."""
         results = []
         for src in SIGNATURE_SOURCES:
@@ -497,7 +497,7 @@ class DatabaseManager:
                 conn = self._get_connection(src)
                 table = DATASET_REGISTRY[src][1]
                 where = ["tx_grid_4 = ?", "rx_grid_4 = ?", "band = ?"]
-                params: list = [tx_grid.upper(), rx_grid.upper(), band]
+                params: list[Any] = [tx_grid.upper(), rx_grid.upper(), band]
                 if hour is not None:
                     where.append("hour = ?")
                     params.append(hour)
@@ -527,7 +527,7 @@ class DatabaseManager:
         band: int,
         source: str = "pskr",
         min_spots: int = 10,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get signatures for a band, for post-processing solar classification."""
         sources = self._resolve_sources(source)
         results = []
@@ -567,7 +567,7 @@ class DatabaseManager:
         min_spots: int = 5,
         limit: int = 100,
         extra_select: str = "",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Query a single signature source with filters."""
         conn = self._get_connection(source)
         table = DATASET_REGISTRY[source][1]
@@ -577,7 +577,7 @@ class DatabaseManager:
             select += f", {extra_select}"
 
         where: list[str] = []
-        params: list = []
+        params: list[Any] = []
 
         if band is not None:
             where.append("band = ?")
@@ -614,7 +614,7 @@ class DatabaseManager:
         rows = conn.execute(sql, params).fetchall()
         return [dict(r) for r in rows]
 
-    def close(self):
+    def close(self) -> None:
         """Close all connections."""
         for conn in self._connections.values():
             conn.close()

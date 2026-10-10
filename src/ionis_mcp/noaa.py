@@ -9,16 +9,16 @@ import json
 import time
 import urllib.request
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 SWPC_BASE = "https://services.swpc.noaa.gov"
 
 # Cache: url → (timestamp, data)
-_cache: dict[str, tuple[float, any]] = {}
+_cache: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL = 900  # 15 minutes
 
 
-def _fetch_json(url: str) -> any:
+def _fetch_json(url: str) -> Any:
     """Fetch JSON from NOAA with caching."""
     now = time.time()
     if url in _cache:
@@ -55,10 +55,10 @@ class SolarConditions:
     wind_timestamp: str = ""
 
     # Alerts
-    alerts: list = field(default_factory=list)
+    alerts: list[dict[str, Any]] = field(default_factory=list)
 
     # Fetch errors (non-fatal)
-    errors: list = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 def fetch_current_conditions() -> SolarConditions:

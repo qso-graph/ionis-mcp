@@ -9,9 +9,9 @@ import os
 
 import pytest
 
-from ionis_mcp.grids import GridLookup
 import ionis_mcp.server as server_mod
 from ionis_mcp.database import DatabaseManager
+from ionis_mcp.grids import GridLookup
 
 
 @pytest.fixture(autouse=True)

@@ -5,6 +5,25 @@ All notable changes to `ionis-mcp` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- **ruff and mypy run in CI** (qso-graph-devel#66), as a job the `ci-all-green` gate requires.
+  Settings follow `adif-mcp`, the reference for every qso-graph Python repo, rather than a style of
+  this repo's own. They run once rather than per Python version: both read the source, and neither
+  answer changes with the interpreter.
+- **`noaa.py` was annotated with the builtin `any`, not `typing.Any`.** `_fetch_json` declared
+  `-> any` and the response cache `tuple[float, any]`. `any` is a function, so neither annotation
+  named a type, and nothing NOAA returns was checked anywhere it was read. Ten of this repo's
+  forty-three findings came from that one letter.
+- Return and parameter types across `database.py`, `download.py` and `server.py`: the query methods
+  say what their rows hold, `close` and the two console entry points say they return nothing, and
+  the download progress reporter names the stream and clock its tests replace.
+- Six unused imports removed, and one f-string with nothing to interpolate.
+- `E501` is deferred rather than adopted (qso-graph-devel#70): what it reports in these repos are
+  widths, not defects, and some lines are long because they name a publisher's field exactly.
+- `mcp.run` is given the literal fastmcp asks for rather than a `str` that happens to hold the
+  right word.
+
 ## [1.3.1] — 2026-10-07
 
 - LICENSE: the full GPL-3.0 text. The file held only its opening and a link, so GitHub detected no licence.
