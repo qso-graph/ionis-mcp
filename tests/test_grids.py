@@ -1,10 +1,8 @@
 """Unit tests for ionis_mcp.grids — Maidenhead grid utilities."""
 
-import math
-
 from ionis_mcp.grids import (
-    BANDS,
     BAND_BY_NAME,
+    BANDS,
     GridLookup,
     azimuth_deg,
     band_name,
@@ -12,7 +10,6 @@ from ionis_mcp.grids import (
     haversine_km,
     validate_grid,
 )
-
 
 # ── validate_grid ────────────────────────────────────────────────────────────
 

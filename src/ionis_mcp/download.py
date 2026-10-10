@@ -12,6 +12,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from typing import IO, Any, Callable
 
 from . import default_data_dir
 
@@ -133,7 +134,14 @@ class Progress:
     LOG_STEP_PERCENT = 10
     LOG_INTERVAL = 30.0
 
-    def __init__(self, total: int, start_at: int = 0, tty: bool | None = None, out=None, clock=time.monotonic):
+    def __init__(
+        self,
+        total: int,
+        start_at: int = 0,
+        tty: bool | None = None,
+        out: IO[str] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.total = total
         self.done = start_at
         self.out = out or sys.stdout
@@ -183,7 +191,7 @@ class DownloadNotADatabase(Exception):
     """The server returned something, and it was not the database we asked for."""
 
 
-def _verify_sqlite(dest: str, filename: str, expected_size: int, headers) -> None:
+def _verify_sqlite(dest: str, filename: str, expected_size: int, headers: Any) -> None:
     """Fail loudly when the download is not the database it claims to be.
 
     WHY THIS EXISTS. A download that returns the wrong thing used to be reported as success.
@@ -259,12 +267,12 @@ def _range_total(content_range: str | None) -> int:
     return int(total) if total.isdigit() else 0
 
 
-def _open(req: urllib.request.Request):
+def _open(req: urllib.request.Request) -> Any:
     """Open a request (tests replace this)."""
     return urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS)
 
 
-def _fetch_into(url: str, part: str, expected_size: int):
+def _fetch_into(url: str, part: str, expected_size: int) -> Any:
     """Fetch url into part, resuming from what part already holds. Returns the response
     headers once part holds the whole file; raises TransientError to retry."""
     have = os.path.getsize(part) if os.path.exists(part) else 0
@@ -317,7 +325,10 @@ def _fetch_into(url: str, part: str, expected_size: int):
     return headers
 
 
-def download_dataset(key: str, data_dir: str, force: bool = False, sleep=time.sleep) -> bool:
+def download_dataset(
+    key: str, data_dir: str, force: bool = False,
+    sleep: Callable[[float], None] = time.sleep,
+) -> bool:
     """Download a single dataset. Returns True on success."""
     dest = _dest_path(data_dir, key)
     part = dest + ".part"
@@ -367,7 +378,7 @@ def download_dataset(key: str, data_dir: str, force: bool = False, sleep=time.sl
     return False
 
 
-def list_available():
+def list_available() -> None:
     """Print available datasets and bundles."""
     print("Available datasets:\n")
     total = 0
@@ -394,7 +405,7 @@ def list_available():
     print("  ionis-download --list")
 
 
-def main():
+def main() -> None:
     default_dir = default_data_dir()
 
     parser = argparse.ArgumentParser(

@@ -76,7 +76,7 @@ def grid_to_latlon(grid: str) -> tuple[float, float]:
 class GridLookup:
     """In-memory grid → (lat, lon) cache, optionally loaded from SQLite."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache: dict[str, tuple[float, float]] = {}
 
     def load_from_sqlite(self, db_path: str) -> int:
