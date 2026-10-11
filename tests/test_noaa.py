@@ -13,7 +13,6 @@ from ionis_mcp.noaa import (
     classify_sfi,
 )
 
-
 # ── classify_sfi ─────────────────────────────────────────────────────────────
 
 class TestClassifySFI:

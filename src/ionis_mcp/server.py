@@ -13,6 +13,7 @@ import argparse
 import logging
 import os
 import sys
+from typing import Any
 
 from fastmcp import FastMCP
 
@@ -20,24 +21,23 @@ from . import __spec_version__, __version__, default_data_dir
 from .database import SFI_MAX, SFI_MIN, SIGNATURE_SOURCES, DatabaseManager, plausible_sfi
 from .grids import (
     GridLookup,
-    band_name,
-    validate_grid,
-    haversine_km,
     azimuth_deg,
-    BANDS,
-)
-from .solar import (
-    solar_elevation_deg,
-    classify_solar,
-    classify_path_solar,
-    month_to_mid_doy,
+    band_name,
+    haversine_km,
+    validate_grid,
 )
 from .noaa import (
-    fetch_current_conditions,
-    classify_sfi,
-    classify_kp,
-    classify_bz,
     band_outlook,
+    classify_bz,
+    classify_kp,
+    classify_sfi,
+    fetch_current_conditions,
+)
+from .solar import (
+    classify_path_solar,
+    classify_solar,
+    month_to_mid_doy,
+    solar_elevation_deg,
 )
 
 logger = logging.getLogger("ionis-mcp")
@@ -277,7 +277,7 @@ def band_openings(
     lines = [
         f"# Band Openings: {tx_valid} → {rx_valid} on {band_name(band)}\n",
         f"**Distance**: {dist:,.0f} km | **Azimuth**: {azm:.0f}°\n",
-        f"Solar elevation shown for mid-June (DOY 172) — seasonal variation applies.\n",
+        "Solar elevation shown for mid-June (DOY 172) — seasonal variation applies.\n",
         "| Hour | SNR (dB) | Spots | Reliability | SFI | TX Solar | RX Solar | Classification |",
         "|------|----------|-------|-------------|-----|----------|----------|----------------|",
     ]
@@ -359,7 +359,7 @@ def path_analysis(
 
     # Best band/hour combos ranked by spot count
     band_hour = {}
-    band_totals: dict[int, dict] = {}
+    band_totals: dict[int, dict[str, Any]] = {}
     month_totals: dict[int, int] = {}
     source_totals: dict[str, int] = {}
     total_spots = 0
@@ -610,7 +610,7 @@ def compare_sources(
         )
 
     # Summary by source
-    source_stats: dict[str, dict] = {}
+    source_stats: dict[str, dict[str, Any]] = {}
     for r in rows:
         src = r["source"]
         if src not in source_stats:
@@ -668,7 +668,7 @@ def dark_hour_analysis(
         return f"No paths found for {band_name(band)} at {hour:02d}z" + (f" in month {month}" if month else "") + "."
 
     # Classify each path
-    categories: dict[str, list] = {
+    categories: dict[str, list[Any]] = {
         "both_day": [], "cross_terminator": [],
         "both_twilight": [], "both_dark": [],
     }
@@ -1020,7 +1020,7 @@ def _resolve_data_dir(cli_arg: str) -> str:
     return default_data_dir()
 
 
-def main():
+def main() -> None:
     """Entry point for ionis-mcp server."""
     default_dir = default_data_dir()
 

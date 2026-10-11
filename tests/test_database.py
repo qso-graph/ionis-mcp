@@ -1,8 +1,5 @@
 """Unit tests for ionis_mcp.database — DatabaseManager with fixture data."""
 
-from ionis_mcp.database import DatabaseManager, SIGNATURE_SOURCES
-
-
 # ── Discovery ────────────────────────────────────────────────────────────────
 
 class TestDiscovery:
