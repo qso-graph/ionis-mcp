@@ -5,59 +5,11 @@ All notable changes to `ionis-mcp` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [1.4.0] — 2026-10-19
 
-### Lint (#31, qso-graph-devel#70)
-
-- **`E501` is adopted.** It reported **56 lines** and not one of them was a defect — the finding,
-  not an argument against enforcing it. The rules that do find defects (`F`, `I`, mypy strict)
-  went in first, which is why this waited.
-- **No line is exempt**; there is no `# noqa: E501` in the repo. The two markdown table headers
-  in `server.py` split at a column boundary, so every column name stays whole and the rendered
-  output is unchanged. Most of the rest are user-facing f-strings — progress lines, warnings,
-  band advice — which split across adjacent literals with the same result.
-- **Nothing moved on the wire.** Every tool's description and `inputSchema` was dumped through a
-  real client before and after: byte-identical.
-- **One mistake worth recording.** Removing the `E501` entry, my regex also deleted
-  `select = ["E", "F", "I"]`, which silently switched ruff to its *default* rule set — 26
-  violations appeared from rules (`BLE`, `UP`, `RUF`) this repo never opted into. They looked
-  like pre-existing debt and were not. Caught by reconciling two counts that disagreed, 26
-  against 56, rather than by reading the diff.
-- Falsified: a long line planted in `src/` and another in `tests/`, both caught.
-
-### TLS (#30, qso-graph-devel#73)
-
-- **`certifi` is carried, and both fetch paths verify against it.** Neither `urlopen` passed a
-  context, so both trusted whichever root store the running Python was built against. On macOS
-  that is `/etc/ssl/cert.pem`, a deliberately *reduced* OpenSSL-compatibility file: current, not
-  stale, but it omits roots the OS itself trusts.
-- **There are two call sites here, in two modules, reaching two different certificate
-  authorities** — `noaa.py` for NOAA SWPC and `download.py` for the dataset downloads. The
-  context therefore lives in a new `tls.py` rather than in either of them: one root set, one
-  place to change it, and one thing for the gate to point at. Two contexts would be two root
-  sets to keep in step.
-- **Measured 2026-10-19**, both hosts verify against Apple's file and against `certifi` alike, so
-  this was latent rather than an outage: `services.swpc.noaa.gov` chains to Amazon Root CA 1, and
-  `sourceforge.net` chains to ISRG Root X2. With two unrelated authorities in play, the chance
-  that one rotates to a root Apple omits is twice what a single-host server carries.
-- `certifi` is declared directly. Measured: it is **not** transitive through `fastmcp>=4.0,<5`,
-  this package's only other dependency, so an undeclared import would be an ImportError at
-  startup for anyone who ran `pip install ionis-mcp`.
-- This server holds no credential, so a trust failure costs an answer rather than a secret — but
-  invisibly: the user is told the download failed, or that conditions could not be read, with
-  nothing pointing at trust. Verification is never disabled; `ssl.CERT_NONE` would make a call
-  "work" by accepting any certificate from anyone.
-- Four checks in `tests/test_security.py`, written to **this** repo's conventions rather than the
-  fleet's — it uses `os.path` strings and `_all_py_sources()`, not `pathlib` and the
-  `_py_files()` helper the other twelve have. My first version assumed the common shape and
-  failed four ways.
-- Six falsifications, every one caught, including **a third fetch path added with no context** —
-  this is the repo that makes the whole-package scan matter, and the check is aimed at the
-  package rather than at the file being edited.
-- Live, with a negative control: both hosts return 200 through a context carrying 117 roots with
-  `CERT_REQUIRED` and hostname checking on, and the same host with an empty root set fails with
-  `CERTIFICATE_VERIFY_FAILED` — so the probe is evidence of verification rather than of the
-  request merely working.
+**No upgrading note.** Nothing a caller reads changes shape: this server never returned
+error payloads, so there is no `isError` migration here. The minor version moves because
+every tool now tells clients something it did not tell them before.
 
 ### MCP specification 2026-07-28 (#32)
 
@@ -98,6 +50,58 @@ protocol half of this issue was already satisfied before any change.
   falsification run is what exposed that.
 - Nine falsifications, every one caught, including the copied-block mistake in both directions:
   the local readers claiming open-world, and `current_conditions` pretending it stays home.
+
+### TLS (#30, qso-graph-devel#73)
+
+- **`certifi` is carried, and both fetch paths verify against it.** Neither `urlopen` passed a
+  context, so both trusted whichever root store the running Python was built against. On macOS
+  that is `/etc/ssl/cert.pem`, a deliberately *reduced* OpenSSL-compatibility file: current, not
+  stale, but it omits roots the OS itself trusts.
+- **There are two call sites here, in two modules, reaching two different certificate
+  authorities** — `noaa.py` for NOAA SWPC and `download.py` for the dataset downloads. The
+  context therefore lives in a new `tls.py` rather than in either of them: one root set, one
+  place to change it, and one thing for the gate to point at. Two contexts would be two root
+  sets to keep in step.
+- **Measured 2026-10-19**, both hosts verify against Apple's file and against `certifi` alike, so
+  this was latent rather than an outage: `services.swpc.noaa.gov` chains to Amazon Root CA 1, and
+  `sourceforge.net` chains to ISRG Root X2. With two unrelated authorities in play, the chance
+  that one rotates to a root Apple omits is twice what a single-host server carries.
+- `certifi` is declared directly. Measured: it is **not** transitive through `fastmcp>=4.0,<5`,
+  this package's only other dependency, so an undeclared import would be an ImportError at
+  startup for anyone who ran `pip install ionis-mcp`.
+- This server holds no credential, so a trust failure costs an answer rather than a secret — but
+  invisibly: the user is told the download failed, or that conditions could not be read, with
+  nothing pointing at trust. Verification is never disabled; `ssl.CERT_NONE` would make a call
+  "work" by accepting any certificate from anyone.
+- Four checks in `tests/test_security.py`, written to **this** repo's conventions rather than the
+  fleet's — it uses `os.path` strings and `_all_py_sources()`, not `pathlib` and the
+  `_py_files()` helper the other twelve have. My first version assumed the common shape and
+  failed four ways.
+- Six falsifications, every one caught, including **a third fetch path added with no context** —
+  this is the repo that makes the whole-package scan matter, and the check is aimed at the
+  package rather than at the file being edited.
+- Live, with a negative control: both hosts return 200 through a context carrying 117 roots with
+  `CERT_REQUIRED` and hostname checking on, and the same host with an empty root set fails with
+  `CERTIFICATE_VERIFY_FAILED` — so the probe is evidence of verification rather than of the
+  request merely working.
+
+### Lint (#31, qso-graph-devel#70)
+
+- **`E501` is adopted.** It reported **56 lines** and not one of them was a defect — the finding,
+  not an argument against enforcing it. The rules that do find defects (`F`, `I`, mypy strict)
+  went in first, which is why this waited.
+- **No line is exempt**; there is no `# noqa: E501` in the repo. The two markdown table headers
+  in `server.py` split at a column boundary, so every column name stays whole and the rendered
+  output is unchanged. Most of the rest are user-facing f-strings — progress lines, warnings,
+  band advice — which split across adjacent literals with the same result.
+- **Nothing moved on the wire.** Every tool's description and `inputSchema` was dumped through a
+  real client before and after: byte-identical.
+- **One mistake worth recording.** Removing the `E501` entry, my regex also deleted
+  `select = ["E", "F", "I"]`, which silently switched ruff to its *default* rule set — 26
+  violations appeared from rules (`BLE`, `UP`, `RUF`) this repo never opted into. They looked
+  like pre-existing debt and were not. Caught by reconciling two counts that disagreed, 26
+  against 56, rather than by reading the diff.
+- Falsified: a long line planted in `src/` and another in `tests/`, both caught.
 
 ## [1.3.2] — 2026-10-11
 
