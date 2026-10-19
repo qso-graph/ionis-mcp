@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Lint (#31, qso-graph-devel#70)
+
+- **`E501` is adopted.** It reported **56 lines** and not one of them was a defect — the finding,
+  not an argument against enforcing it. The rules that do find defects (`F`, `I`, mypy strict)
+  went in first, which is why this waited.
+- **No line is exempt**; there is no `# noqa: E501` in the repo. The two markdown table headers
+  in `server.py` split at a column boundary, so every column name stays whole and the rendered
+  output is unchanged. Most of the rest are user-facing f-strings — progress lines, warnings,
+  band advice — which split across adjacent literals with the same result.
+- **Nothing moved on the wire.** Every tool's description and `inputSchema` was dumped through a
+  real client before and after: byte-identical.
+- **One mistake worth recording.** Removing the `E501` entry, my regex also deleted
+  `select = ["E", "F", "I"]`, which silently switched ruff to its *default* rule set — 26
+  violations appeared from rules (`BLE`, `UP`, `RUF`) this repo never opted into. They looked
+  like pre-existing debt and were not. Caught by reconciling two counts that disagreed, 26
+  against 56, rather than by reading the diff.
+- Falsified: a long line planted in `src/` and another in `tests/`, both caught.
+
 ### TLS (#30, qso-graph-devel#73)
 
 - **`certifi` is carried, and both fetch paths verify against it.** Neither `urlopen` passed a

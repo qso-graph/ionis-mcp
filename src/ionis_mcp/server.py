@@ -113,7 +113,8 @@ def _missing_data(mgr: DatabaseManager, source: str) -> str | None:
     No dataset installed must never look like "no propagation": an empty table from
     missing data reads as a closed band."""
     if source != "all" and source not in SIGNATURE_SOURCES:
-        return f"Unknown source '{source}'. Use one of: {', '.join(SIGNATURE_SOURCES)}, or all."
+        return (f"Unknown source '{source}'. Use one of: "
+                f"{', '.join(SIGNATURE_SOURCES)}, or all.")
     if source == "all":
         if mgr.available_sources():
             return None
@@ -270,7 +271,8 @@ def query_signatures(
         return f"No signatures found matching: {', '.join(filters) or 'no filters'}"
 
     lines = [f"# Signature Query Results ({len(rows)} rows)\n"]
-    lines.append("| Source | TX | RX | Band | Hour | Month | SNR | Spots | Reliability | SFI | Kp | Distance |")
+    lines.append("| Source | TX | RX | Band | Hour | Month | SNR | Spots | "
+                 "Reliability | SFI | Kp | Distance |")
     lines.append("|--------|----|----|------|------|-------|-----|-------|-------------|-----|----|----------|")
 
     for r in rows:
@@ -329,7 +331,8 @@ def band_openings(
         f"# Band Openings: {tx_valid} → {rx_valid} on {band_name(band)}\n",
         f"**Distance**: {dist:,.0f} km | **Azimuth**: {azm:.0f}°\n",
         "Solar elevation shown for mid-June (DOY 172) — seasonal variation applies.\n",
-        "| Hour | SNR (dB) | Spots | Reliability | SFI | TX Solar | RX Solar | Classification |",
+        "| Hour | SNR (dB) | Spots | Reliability | SFI | TX Solar | RX Solar | "
+        "Classification |",
         "|------|----------|-------|-------------|-----|----------|----------|----------------|",
     ]
 
@@ -441,7 +444,8 @@ def path_analysis(
         month_totals[m] = month_totals.get(m, 0) + spots
         source_totals[src] = source_totals.get(src, 0) + spots
 
-    lines.append(f"**Total observations**: {_format_number(total_spots)} spots across {len(sigs)} signatures\n")
+    lines.append(f"**Total observations**: {_format_number(total_spots)} spots "
+                 f"across {len(sigs)} signatures\n")
 
     # Source breakdown
     lines.append("## Sources")
@@ -456,7 +460,8 @@ def path_analysis(
     for b in sorted(band_totals.keys()):
         bt = band_totals[b]
         lines.append(
-            f"| {band_name(b)} | {_format_number(bt['sigs'])} | {_format_number(bt['spots'])} |"
+            f"| {band_name(b)} | {_format_number(bt['sigs'])} | "
+            f"{_format_number(bt['spots'])} |"
         )
     lines.append("")
 
@@ -539,7 +544,8 @@ def solar_correlation(
 
     if excluded:
         lines.append(
-            f"\n{_format_number(excluded)} signatures with an SFI outside {SFI_MIN:.0f}–{SFI_MAX:.0f} "
+            f"\n{_format_number(excluded)} signatures with an SFI outside "
+            f"{SFI_MIN:.0f}–{SFI_MAX:.0f} "
             "(bad values in the dataset) are left out."
         )
 
@@ -572,7 +578,8 @@ def grid_info(
     """
     valid = validate_grid(grid)
     if not valid:
-        return f"Invalid Maidenhead grid: '{grid}'. Expected format: 2 letters + 2 digits (+ optional 2 letters)."
+        return (f"Invalid Maidenhead grid: '{grid}'. Expected format: "
+                "2 letters + 2 digits (+ optional 2 letters).")
 
     lat, lon = grid_lookup.get(valid)
 
@@ -716,7 +723,8 @@ def dark_hour_analysis(
     ]
 
     if not paths:
-        return f"No paths found for {band_name(band)} at {hour:02d}z" + (f" in month {month}" if month else "") + "."
+        return (f"No paths found for {band_name(band)} at {hour:02d}z"
+                + (f" in month {month}" if month else "") + ".")
 
     # Classify each path
     categories: dict[str, list[Any]] = {
@@ -831,7 +839,8 @@ def solar_history(
             )
 
     if len(rows) > 200:
-        lines.append(f"\n*Showing 200 of {len(rows)} rows. Narrow the date range for full data.*")
+        lines.append(f"\n*Showing 200 of {len(rows)} rows. "
+                     "Narrow the date range for full data.*")
 
     return "\n".join(lines)
 
@@ -872,8 +881,9 @@ def band_summary(
         )
     if stats["sfi_excluded"]:
         lines.append(
-            f"**SFI unknown**: {_format_number(stats['sfi_excluded'])} signatures with an SFI outside "
-            f"{SFI_MIN:.0f}–{SFI_MAX:.0f} (bad values in the dataset) are left out of the SFI range"
+            f"**SFI unknown**: {_format_number(stats['sfi_excluded'])} signatures "
+            f"with an SFI outside {SFI_MIN:.0f}–{SFI_MAX:.0f} (bad values in the "
+            "dataset) are left out of the SFI range"
         )
     if stats["distance_range_km"][0] is not None:
         lines.append(
@@ -900,7 +910,8 @@ def band_summary(
         lines.append("|----|----| ------|--------|")
         for pair in stats["top_grid_pairs"]:
             lines.append(
-                f"| {pair['tx']} | {pair['rx']} | {_format_number(pair['spots'])} | {pair['source']} |"
+                f"| {pair['tx']} | {pair['rx']} | "
+                f"{_format_number(pair['spots'])} | {pair['source']} |"
             )
 
     return "\n".join(lines)
@@ -990,15 +1001,18 @@ def current_conditions(
         # POTA/SOTA recommendation
         lines.append("\n## Portable / POTA / SOTA\n")
         if cond.sfi >= 150 and cond.kp < 4:
-            lines.append("**Best portable bands**: 20m (reliable all day), 15m (excellent), 10m (open)")
+            lines.append("**Best portable bands**: 20m (reliable all day), "
+                         "15m (excellent), 10m (open)")
             lines.append("**Strategy**: Start on 15m/10m, fall back to 20m if they close")
             lines.append("**Modes**: SSB for fast QSO rate — bands are wide open. "
-                         "CW for DX pileups. FT8 unnecessary but works on 10m for weak openings.")
+                         "CW for DX pileups. FT8 unnecessary but works on 10m "
+                         "for weak openings.")
         elif cond.sfi >= 120 and cond.kp < 4:
             lines.append("**Best portable bands**: 20m (primary), 15m/17m (good)")
             lines.append("**Strategy**: 20m is your workhorse, try 15m for DX midday")
             lines.append("**Modes**: SSB on 20m/15m for quick QSO rate. "
-                         "CW for DX and weaker paths. FT8 on 10m/12m where openings are short.")
+                         "CW for DX and weaker paths. FT8 on 10m/12m where "
+                         "openings are short.")
         elif cond.sfi >= 90 and cond.kp < 4:
             lines.append("**Best portable bands**: 20m (primary), 40m (reliable)")
             lines.append("**Strategy**: 20m for DX, 40m for regional. 15m worth a try midday.")
@@ -1007,13 +1021,16 @@ def current_conditions(
                          "SSB on 40m for regional park-to-park.")
         elif cond.kp >= 5:
             lines.append("**Geomagnetic storm active** — conditions degraded on all bands")
-            lines.append("**Strategy**: 40m/80m may be more stable than HF. Wait for Kp to drop.")
+            lines.append("**Strategy**: 40m/80m may be more stable than HF. "
+                         "Wait for Kp to drop.")
             lines.append("**Modes**: FT8 primary — signals will be weak and fading. "
                          "CW as backup. SSB only on 40m/80m if signals are strong enough.")
         else:
-            lines.append("**Best portable bands**: 40m (primary), 20m (daytime), 80m (evening)")
+            lines.append("**Best portable bands**: 40m (primary), "
+                         "20m (daytime), 80m (evening)")
             lines.append("**Strategy**: Low SFI favors lower bands. 20m still works daytime.")
-            lines.append("**Modes**: FT8 on 20m and above — low ionization means weak signals. "
+            lines.append("**Modes**: FT8 on 20m and above — low ionization means "
+                         "weak signals. "
                          "CW/SSB on 40m/80m where conditions are more reliable. "
                          "FT8 on 15m for any sporadic openings.")
 
@@ -1134,7 +1151,8 @@ def main() -> None:
     if db.is_available("grids"):
         grid_db_path = os.path.join(data_dir, "tools/grid-lookup/grid_lookup.sqlite")
         count = grid_lookup.load_from_sqlite(grid_db_path)
-        print(f"  Grid lookup: {_format_number(count)} grids loaded into memory", file=sys.stderr)
+        print(f"  Grid lookup: {_format_number(count)} grids loaded into memory",
+              file=sys.stderr)
 
     # Run server
     if args.transport == "streamable-http":

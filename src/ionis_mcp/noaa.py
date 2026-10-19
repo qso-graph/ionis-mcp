@@ -217,7 +217,8 @@ def band_outlook(sfi: float, kp: float) -> dict[str, str]:
     storm = kp >= 5
 
     if sfi >= 150:
-        outlook["10m"] = "EXCELLENT — F2 wide open" if not storm else "DEGRADED — storm suppressing F2"
+        outlook["10m"] = ("EXCELLENT — F2 wide open" if not storm
+                          else "DEGRADED — storm suppressing F2")
         outlook["12m"] = "EXCELLENT — solid DX" if not storm else "DEGRADED"
         outlook["15m"] = "EXCELLENT — all day" if not storm else "FAIR — storm impact"
         outlook["17m"] = "VERY GOOD" if not storm else "FAIR"
