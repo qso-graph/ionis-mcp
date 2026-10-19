@@ -152,11 +152,17 @@ def fixture_data_dir(tmp_path):
     """
     # Signature databases
     sig_map = {
-        "wspr": ("propagation/wspr-signatures", "wspr_signatures_v2.sqlite", "wspr_signatures_v2", WSPR_ROWS),
-        "rbn": ("propagation/rbn-signatures", "rbn_signatures.sqlite", "rbn_signatures", RBN_ROWS),
-        "contest": ("propagation/contest-signatures", "contest_signatures.sqlite", "contest_signatures", CONTEST_ROWS),
-        "dxpedition": ("propagation/dxpedition-signatures", "dxpedition_signatures.sqlite", "dxpedition_signatures", DXPEDITION_ROWS),
-        "pskr": ("propagation/pskr-signatures", "pskr_signatures.sqlite", "pskr_signatures", PSKR_ROWS),
+        "wspr": ("propagation/wspr-signatures", "wspr_signatures_v2.sqlite",
+                 "wspr_signatures_v2", WSPR_ROWS),
+        "rbn": ("propagation/rbn-signatures", "rbn_signatures.sqlite",
+                "rbn_signatures", RBN_ROWS),
+        "contest": ("propagation/contest-signatures", "contest_signatures.sqlite",
+                    "contest_signatures", CONTEST_ROWS),
+        "dxpedition": ("propagation/dxpedition-signatures",
+                       "dxpedition_signatures.sqlite",
+                       "dxpedition_signatures", DXPEDITION_ROWS),
+        "pskr": ("propagation/pskr-signatures", "pskr_signatures.sqlite",
+                 "pskr_signatures", PSKR_ROWS),
     }
 
     for key, (subdir, filename, table, rows) in sig_map.items():

@@ -123,7 +123,9 @@ def test_no_eval_exec():
 def test_no_hardcoded_secrets():
     """S8: No hardcoded API keys, passwords, or tokens in source."""
     patterns = [
-        re.compile(r'(?:api_key|password|secret|token)\s*=\s*["\'][^"\']{8,}["\']', re.IGNORECASE),
+        re.compile(
+            r'(?:api_key|password|secret|token)\s*=\s*["\'][^"\']{8,}["\']',
+            re.IGNORECASE),
         re.compile(r'sk-[a-zA-Z0-9]{20,}'),  # OpenAI-style keys
         re.compile(r'Bearer\s+[a-zA-Z0-9]{20,}'),
     ]
@@ -231,7 +233,9 @@ def test_tls_verification_is_never_disabled():
     forbidden = re.compile(r"CERT_NONE|check_hostname\s*=\s*False|_create_unverified")
     for py_file in _all_py_sources():
         matches = forbidden.findall(_code_only(py_file))
-        assert not matches, f"TLS verification weakened in {os.path.basename(py_file)}: {matches}"
+        assert not matches, (
+            f"TLS verification weakened in {os.path.basename(py_file)}: {matches}"
+        )
 
 
 def test_the_root_set_is_carried_not_borrowed():

@@ -30,7 +30,9 @@ def server_with(tmp_path):
             d.mkdir(parents=True)
             conn = sqlite3.connect(str(d / "wspr_signatures_v2.sqlite"))
             conn.execute(f"CREATE TABLE wspr_signatures_v2 ({SIGNATURE_COLUMNS})")
-            conn.executemany(f"INSERT INTO wspr_signatures_v2 VALUES ({','.join('?' * 13)})", wspr_rows)
+            conn.executemany(
+                f"INSERT INTO wspr_signatures_v2 VALUES ({','.join('?' * 13)})",
+                wspr_rows)
             conn.commit()
             conn.close()
         mgr = DatabaseManager(data_dir=str(tmp_path))
@@ -79,7 +81,8 @@ def test_installed_but_no_observations_is_an_honest_empty_answer(server_with):
 
 def test_solar_history_names_the_command(server_with):
     server_with(WSPR_ROWS)
-    assert "ionis-download --datasets solar" in server_mod.solar_history("2026-03-01", "2026-03-02")
+    assert "ionis-download --datasets solar" in server_mod.solar_history(
+        "2026-03-01", "2026-03-02")
 
 
 # ── #17 ──────────────────────────────────────────────────────────────────────
@@ -88,7 +91,8 @@ BAD_SFI = [
     # tx, rx, band, hr, mo, snr, spots, std, rel, sfi, kp, dist, azm
     ("DN13", "JO51", 107, 14, 3, -6.0, 100, 2.0, 0.5, 938.6, 2.0, 8500, 35.0),
     ("DN13", "JO51", 107, 15, 3, -6.0, 100, 2.0, 0.5, 0.0, 2.0, 8500, 35.0),
-    ("DN13", "JO51", 107, 16, 3, -6.0, 100, 2.0, 0.5, 400.0, 2.0, 8500, 35.0),  # the edge: kept
+    # the edge: kept
+    ("DN13", "JO51", 107, 16, 3, -6.0, 100, 2.0, 0.5, 400.0, 2.0, 8500, 35.0),
 ]
 
 
@@ -114,7 +118,8 @@ def test_solar_correlation_leaves_bad_sfi_out(server_with):
     mgr = server_with(WSPR_ROWS + BAD_SFI)
     brackets = {b["sfi_bracket"]: b for b in mgr.query_solar_correlation(107, source="wspr")}
     good = sum(1 for r in WSPR_ROWS if r[2] == 107)
-    assert sum(b["signatures"] for b in brackets.values()) == good + 1  # 400.0 counts, in 200-400
+    # 400.0 counts, in 200-400
+    assert sum(b["signatures"] for b in brackets.values()) == good + 1
     assert brackets["200-400"]["signatures"] == 2
     out = server_mod.solar_correlation(107)
     assert "2 signatures with an SFI outside 50–400" in out
