@@ -5,6 +5,48 @@ All notable changes to `ionis-mcp` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### MCP specification 2026-07-28 (#32)
+
+**No upgrading note, and that is the finding.** Issue #32 reports "0 occurrences" of error
+dicts in `src/` and it is right — the first issue in this fleet sweep whose count was not
+inflated. This server raises rather than returning error payloads, and measured through a real
+client, a raised exception already arrived as `isError: true` with its message intact. So the
+protocol half of this issue was already satisfied before any change.
+
+- **All 12 tools declare the four annotation hints**, which was the actual gap: they declared
+  none, and the defaults advertise a tool as `destructiveHint: true`, `idempotentHint: false`
+  and `openWorldHint: true`.
+- **`openWorldHint` is false on eleven of twelve tools — the inverse of every other server in
+  the fleet.** Everywhere else nearly every tool calls somebody's web API. Here nine tools query
+  the SQLite datasets already on this machine (the specification's own example of a closed
+  domain is a database query), `grid_info` is Maidenhead arithmetic, and `get_version_info`
+  reads the wheel. Only `current_conditions` leaves the machine, for NOAA SWPC. A block copied
+  from any other repo in this sweep would have told clients that querying a local file reaches
+  an open world.
+- Classified by reading what each tool touches, with an AST walk, not by reading the tool names.
+- `idempotentHint: true` throughout, including `current_conditions` where space weather changes
+  between calls: the hint is about the tool not changing state, not about a stable answer.
+- **`_require_db` raises `ToolError`** instead of `RuntimeError`. Not a fix for a broken path —
+  it already reached the client flagged. It removes a dependence on a default:
+  `FastMCP(mask_error_details=...)` defaults to `None`, i.e. to whatever the ambient setting
+  says, and with masking on an uncaught exception's text is replaced. `ToolError` is the channel
+  whose message is always shown. It also drops FastMCP's `Error calling tool 'x': ` prefix and
+  the ERROR-level traceback, so the client now sees exactly
+  `Database not initialized. Set IONIS_DATA_DIR.`
+- **A test asserts `download.py` stays out of the tool layer.** It is the one module here that
+  writes files and opens sockets, every tool is annotated `readOnlyHint: true`, and that is only
+  honest while `server.py` cannot reach it. An import is one line and nobody would think to
+  check.
+- **`tests/test_mcp_conformance.py`**: 11 tests, `IO-C01` onward. One compares the *published
+  annotations* against an AST walk of the source, so a tool that gains a network call without
+  gaining the hint fails. Its first version compared the code against a constant in the test
+  file instead — two lists agreeing with each other, which proves nothing — and the
+  falsification run is what exposed that.
+- Nine falsifications, every one caught, including the copied-block mistake in both directions:
+  the local readers claiming open-world, and `current_conditions` pretending it stays home.
+
 ## [1.3.2] — 2026-10-11
 
 - **ruff and mypy run in CI** (qso-graph-devel#66), as a job the `ci-all-green` gate requires.
