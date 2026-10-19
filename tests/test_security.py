@@ -200,3 +200,88 @@ def test_grid_validation_exists():
     assert validate_grid("12AB") is None
     assert validate_grid("'; DROP TABLE--") is None
     assert validate_grid("<script>") is None
+
+
+def _code_only(path: str) -> str:
+    """The file with comments and string literals removed.
+
+    Some checks must read what the code *does*, not what it says about itself.
+    `tls.context()` carries a docstring explaining that `ssl.CERT_NONE` would be the
+    wrong fix, and a plain text search cannot tell that sentence from the thing it
+    warns against.
+    """
+    import tokenize
+
+    kept = []
+    with open(path, "rb") as handle:
+        for token in tokenize.tokenize(handle.readline):
+            if token.type in (tokenize.COMMENT, tokenize.STRING):
+                continue
+            kept.append(token.string)
+    return " ".join(kept)
+
+
+def test_tls_verification_is_never_disabled():
+    """Guarantee #8: no context here stops checking certificates.
+
+    This server holds no credential, so a trust failure costs an answer rather than a
+    secret. But `ssl.CERT_NONE` would still accept any certificate from anyone, which
+    is a worse defect than the one qso-graph-devel#73 fixes, and an invisible one.
+    """
+    forbidden = re.compile(r"CERT_NONE|check_hostname\s*=\s*False|_create_unverified")
+    for py_file in _all_py_sources():
+        matches = forbidden.findall(_code_only(py_file))
+        assert not matches, f"TLS verification weakened in {os.path.basename(py_file)}: {matches}"
+
+
+def test_the_root_set_is_carried_not_borrowed():
+    """Guarantee #8: the roots come from certifi, not the host's OpenSSL store.
+
+    One context for the whole package, in tls.py, because two modules open sockets:
+    noaa.py and download.py. Two contexts would be two root sets to keep in step.
+    """
+    with open(os.path.join(SRC_DIR, "tls.py")) as fh:
+        assert "cafile=certifi.where()" in fh.read()
+
+
+def test_certifi_is_declared_not_merely_imported():
+    """Guarantee #8: an import the wheel does not declare is an ImportError at startup.
+
+    Measured 2026-10-19: `certifi` is not transitive through `fastmcp>=4.0,<5`, this
+    package's only other dependency. Drop the declaration and `pip install ionis-mcp`
+    gives a server that cannot start.
+    """
+    root = os.path.join(SRC_DIR, "..", "..", "pyproject.toml")
+    with open(root) as fh:
+        pyproject = fh.read()
+    deps = pyproject.split("dependencies = [", 1)[1].split("]", 1)[0]
+    assert re.search(r'^\s*"certifi', deps, re.MULTILINE), (
+        "tls.py imports certifi but [project] dependencies does not declare it"
+    )
+
+
+def test_every_outbound_call_verifies():
+    """Guarantee #8: neither fetch path can quietly skip the context.
+
+    This repo is why the check is written across the whole package rather than against
+    one file: there are **two** call sites, in different modules, reaching different
+    certificate authorities — NOAA SWPC and SourceForge. lotw-mcp, qrz-mcp and
+    eqsl-mcp each had two as well, and a check aimed at the file you happen to be
+    editing is a check that misses the other one.
+
+    Line by line rather than by matching balanced parentheses: a regex for the whole
+    call ends at the first ")", which is the one inside "context()", so it would read a
+    call that passes no context as though it did.
+    """
+    calls = []
+    for py_file in _all_py_sources():
+        with open(py_file) as fh:
+            for i, line in enumerate(fh.read().splitlines(), 1):
+                if "urllib.request.urlopen(" in line:
+                    calls.append((os.path.basename(py_file), i, line))
+    assert len(calls) >= 2, f"expected both fetch paths, found {calls}"
+    for filename, number, line in calls:
+        assert "context=tls.context()" in line, (
+            f"{filename}:{number} opens a connection without a verifying context: "
+            f"{line.strip()}"
+        )

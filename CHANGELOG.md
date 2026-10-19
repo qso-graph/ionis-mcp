@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### TLS (#30, qso-graph-devel#73)
+
+- **`certifi` is carried, and both fetch paths verify against it.** Neither `urlopen` passed a
+  context, so both trusted whichever root store the running Python was built against. On macOS
+  that is `/etc/ssl/cert.pem`, a deliberately *reduced* OpenSSL-compatibility file: current, not
+  stale, but it omits roots the OS itself trusts.
+- **There are two call sites here, in two modules, reaching two different certificate
+  authorities** — `noaa.py` for NOAA SWPC and `download.py` for the dataset downloads. The
+  context therefore lives in a new `tls.py` rather than in either of them: one root set, one
+  place to change it, and one thing for the gate to point at. Two contexts would be two root
+  sets to keep in step.
+- **Measured 2026-10-19**, both hosts verify against Apple's file and against `certifi` alike, so
+  this was latent rather than an outage: `services.swpc.noaa.gov` chains to Amazon Root CA 1, and
+  `sourceforge.net` chains to ISRG Root X2. With two unrelated authorities in play, the chance
+  that one rotates to a root Apple omits is twice what a single-host server carries.
+- `certifi` is declared directly. Measured: it is **not** transitive through `fastmcp>=4.0,<5`,
+  this package's only other dependency, so an undeclared import would be an ImportError at
+  startup for anyone who ran `pip install ionis-mcp`.
+- This server holds no credential, so a trust failure costs an answer rather than a secret — but
+  invisibly: the user is told the download failed, or that conditions could not be read, with
+  nothing pointing at trust. Verification is never disabled; `ssl.CERT_NONE` would make a call
+  "work" by accepting any certificate from anyone.
+- Four checks in `tests/test_security.py`, written to **this** repo's conventions rather than the
+  fleet's — it uses `os.path` strings and `_all_py_sources()`, not `pathlib` and the
+  `_py_files()` helper the other twelve have. My first version assumed the common shape and
+  failed four ways.
+- Six falsifications, every one caught, including **a third fetch path added with no context** —
+  this is the repo that makes the whole-package scan matter, and the check is aimed at the
+  package rather than at the file being edited.
+- Live, with a negative control: both hosts return 200 through a context carrying 117 roots with
+  `CERT_REQUIRED` and hostname checking on, and the same host with an empty root set fails with
+  `CERTIFICATE_VERIFY_FAILED` — so the probe is evidence of verification rather than of the
+  request merely working.
+
 ### MCP specification 2026-07-28 (#32)
 
 **No upgrading note, and that is the finding.** Issue #32 reports "0 occurrences" of error

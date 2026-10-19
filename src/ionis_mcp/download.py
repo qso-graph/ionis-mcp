@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 from typing import IO, Any, Callable
 
-from . import default_data_dir
+from . import default_data_dir, tls
 
 SF_BASE = "https://sourceforge.net/projects/ionis-ai/files/v1.0"
 
@@ -269,7 +269,7 @@ def _range_total(content_range: str | None) -> int:
 
 def _open(req: urllib.request.Request) -> Any:
     """Open a request (tests replace this)."""
-    return urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS)
+    return urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS, context=tls.context())
 
 
 def _fetch_into(url: str, part: str, expected_size: int) -> Any:

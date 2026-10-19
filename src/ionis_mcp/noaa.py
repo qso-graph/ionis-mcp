@@ -11,6 +11,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from . import tls
+
 SWPC_BASE = "https://services.swpc.noaa.gov"
 
 # Cache: url → (timestamp, data)
@@ -27,7 +29,7 @@ def _fetch_json(url: str) -> Any:
             return data
 
     req = urllib.request.Request(url, headers={"User-Agent": "ionis-mcp/1.2"})
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10, context=tls.context()) as resp:
         data = json.loads(resp.read().decode())
 
     _cache[url] = (now, data)
