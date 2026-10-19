@@ -16,6 +16,7 @@ import sys
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from . import __spec_version__, __version__, default_data_dir
 from .database import SFI_MAX, SFI_MIN, SIGNATURE_SOURCES, DatabaseManager, plausible_sfi
@@ -49,10 +50,60 @@ db: DatabaseManager | None = None
 grid_lookup: GridLookup = GridLookup()
 
 
+# MCP 2026-07-28 tool annotations. The defaults are pessimistic — a tool that
+# declares nothing is advertised as destructive, non-idempotent and open-world, and
+# the specification tells a client it may keep a human in the loop for that.
+#
+# This server is the inverse of the rest of the fleet. Everywhere else nearly every
+# tool reaches somebody's web API, so openWorldHint is nearly always true. Here
+# eleven of twelve tools answer from data already on this machine, and only
+# current_conditions reaches the network. Classified per tool by reading what each
+# one touches rather than by copying a block.
+#
+# All twelve are read-only: nothing here writes, and download.py — which does write —
+# is not reachable from the tool layer.
+_READS_LOCAL_DATASETS = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    # Queries the SQLite datasets the operator has already downloaded. The
+    # specification's own example of a closed domain is a database query, and this is
+    # one: no request leaves the machine.
+    "openWorldHint": False,
+}
+_ANSWERS_WITHOUT_LOOKING = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    # get_version_info reports versions carried in the wheel; grid_info is Maidenhead
+    # arithmetic. Neither opens anything. Same values as the block above, kept
+    # separate because the reason differs and a later reader should see which it is.
+    "openWorldHint": False,
+}
+_READS_NOAA = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    # Space weather changes between calls, so two identical calls can differ. The
+    # hint is about the tool not changing state, not about a stable answer.
+    "idempotentHint": True,
+    # The one tool here that leaves the machine: NOAA SWPC over HTTPS.
+    "openWorldHint": True,
+}
+
+
 def _require_db() -> DatabaseManager:
-    """Get database manager or raise."""
+    """Get database manager, or fail in the way the protocol specifies.
+
+    This raised RuntimeError, and measured, that already reached a client as
+    `isError: true` with the message intact — FastMCP flags an uncaught exception.
+    So this is not a fix for a broken path; it is removing a dependence on a default.
+    `FastMCP(mask_error_details=...)` defaults to None, i.e. whatever the ambient
+    setting says, and when masking is on an uncaught exception's text is replaced.
+    `ToolError` is the sanctioned channel whose message is always shown, which is
+    what .claude/rules/security.md asks for.
+    """
     if db is None:
-        raise RuntimeError("Database not initialized. Set IONIS_DATA_DIR.")
+        raise ToolError("Database not initialized. Set IONIS_DATA_DIR.")
     return db
 
 
@@ -107,7 +158,7 @@ def _version_info_payload() -> dict[str, str]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=_ANSWERS_WITHOUT_LOOKING)
 def get_version_info() -> dict[str, str]:
     """Get ionis-mcp service version and upstream dataset version.
 
@@ -125,7 +176,7 @@ def get_version_info() -> dict[str, str]:
 
 # ── Tool 1: list_datasets ───────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def list_datasets() -> str:
     """Show available IONIS datasets and their statistics.
 
@@ -164,7 +215,7 @@ def list_datasets() -> str:
 
 # ── Tool 2: query_signatures ────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def query_signatures(
     source: str = "all",
     band: int | None = None,
@@ -237,7 +288,7 @@ def query_signatures(
 
 # ── Tool 3: band_openings ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def band_openings(
     tx_grid: str,
     rx_grid: str,
@@ -310,7 +361,7 @@ def band_openings(
 
 # ── Tool 4: path_analysis ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def path_analysis(
     tx_grid: str,
     rx_grid: str,
@@ -437,7 +488,7 @@ def path_analysis(
 
 # ── Tool 5: solar_correlation ───────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def solar_correlation(
     band: int,
     tx_grid: str | None = None,
@@ -500,7 +551,7 @@ def solar_correlation(
 
 # ── Tool 6: grid_info ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_ANSWERS_WITHOUT_LOOKING)
 def grid_info(
     grid: str,
     hour: int | None = None,
@@ -558,7 +609,7 @@ def grid_info(
 
 # ── Tool 7: compare_sources ────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def compare_sources(
     tx_grid: str,
     rx_grid: str,
@@ -630,7 +681,7 @@ def compare_sources(
 
 # ── Tool 8: dark_hour_analysis ──────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def dark_hour_analysis(
     band: int,
     hour: int,
@@ -728,7 +779,7 @@ def dark_hour_analysis(
 
 # ── Tool 9: solar_history ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def solar_history(
     start_date: str,
     end_date: str,
@@ -787,7 +838,7 @@ def solar_history(
 
 # ── Tool 10: band_summary ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def band_summary(
     band: int,
     source: str = "all",
@@ -857,7 +908,7 @@ def band_summary(
 
 # ── Tool 11: current_conditions ────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_NOAA)
 def current_conditions(
     qth_grid: str | None = None,
 ) -> str:
