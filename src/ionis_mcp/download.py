@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 from typing import IO, Any, Callable
 
-from . import default_data_dir
+from . import default_data_dir, tls
 
 SF_BASE = "https://sourceforge.net/projects/ionis-ai/files/v1.0"
 
@@ -155,7 +155,8 @@ class Progress:
 
     def _line(self) -> str:
         if self.total > 0:
-            return f"  {self.done * 100 / self.total:5.1f}%  {_format_size(self.done)} of {_format_size(self.total)}"
+            return (f"  {self.done * 100 / self.total:5.1f}%  "
+                    f"{_format_size(self.done)} of {_format_size(self.total)}")
         return f"  {_format_size(self.done)} downloaded"
 
     def update(self, n: int) -> None:
@@ -222,14 +223,16 @@ def _verify_sqlite(dest: str, filename: str, expected_size: int, headers: Any) -
     ctype = (headers.get("Content-Type") or "").split(";")[0].strip().lower()
     if ctype in ("text/html", "application/xhtml+xml"):
         raise DownloadNotADatabase(
-            f"server returned {ctype}, not a database -- the file is probably missing or moved. "
+            f"server returned {ctype}, not a database -- the file is probably "
+            "missing or moved. "
             f"Check {SF_BASE} in a browser."
         )
 
     actual = os.path.getsize(dest)
     if actual < MIN_PLAUSIBLE_BYTES:
         raise DownloadNotADatabase(
-            f"got {actual:,} bytes for a ~{_format_size(expected_size)} dataset -- almost certainly an "
+            f"got {actual:,} bytes for a ~{_format_size(expected_size)} dataset "
+            "-- almost certainly an "
             f"error page rather than {filename}"
         )
 
@@ -237,7 +240,8 @@ def _verify_sqlite(dest: str, filename: str, expected_size: int, headers: Any) -
         magic = fh.read(len(SQLITE_MAGIC))
     if magic != SQLITE_MAGIC:
         raise DownloadNotADatabase(
-            f"not a SQLite database (starts with {magic[:16]!r}) -- the download completed but "
+            f"not a SQLite database (starts with {magic[:16]!r}) -- the download "
+            "completed but "
             f"returned something else"
         )
 
@@ -245,7 +249,8 @@ def _verify_sqlite(dest: str, filename: str, expected_size: int, headers: Any) -
     # compiled in months ago.
     if expected_size and actual < expected_size * 0.5:
         print(
-            f"  WARN {filename} is {_format_size(actual)}, expected ~{_format_size(expected_size)}",
+            f"  WARN {filename} is {_format_size(actual)}, "
+            f"expected ~{_format_size(expected_size)}",
         )
 
 
@@ -269,7 +274,7 @@ def _range_total(content_range: str | None) -> int:
 
 def _open(req: urllib.request.Request) -> Any:
     """Open a request (tests replace this)."""
-    return urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS)
+    return urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS, context=tls.context())
 
 
 def _fetch_into(url: str, part: str, expected_size: int) -> Any:
@@ -286,16 +291,19 @@ def _fetch_into(url: str, part: str, expected_size: int) -> Any:
             if _range_total(e.headers.get("Content-Range")) == have:
                 return {}  # already whole (stopped before it was checked and moved): check it
             os.remove(part)  # larger than the file: no good
-            raise TransientError("the partial file didn't match the server's; starting again") from e
+            raise TransientError(
+                "the partial file didn't match the server's; starting again") from e
         if e.code >= 500:
             raise TransientError(f"HTTP {e.code}") from e
         raise
-    except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException) as e:
+    except (urllib.error.URLError, TimeoutError, ConnectionError,
+            http.client.HTTPException) as e:
         raise TransientError(str(e)) from e
 
     with resp:
         if not resp.geturl().startswith("https://"):
-            raise DownloadNotADatabase(f"redirected away from HTTPS ({resp.geturl().split('?')[0]})")
+            raise DownloadNotADatabase(
+                f"redirected away from HTTPS ({resp.geturl().split('?')[0]})")
         headers = resp.headers
         if have and resp.status == 206:
             total = _range_total(headers.get("Content-Range"))
@@ -310,7 +318,8 @@ def _fetch_into(url: str, part: str, expected_size: int) -> Any:
             while True:
                 try:
                     chunk = resp.read(CHUNK)
-                except (OSError, http.client.HTTPException) as e:  # the connection, not the disk
+                # the connection, not the disk
+                except (OSError, http.client.HTTPException) as e:
                     sys.stdout.write(progress.end())
                     raise TransientError(str(e) or type(e).__name__) from e
                 if not chunk:
@@ -321,7 +330,8 @@ def _fetch_into(url: str, part: str, expected_size: int) -> Any:
 
     got = os.path.getsize(part)
     if total and got < total:
-        raise TransientError(f"connection closed at {_format_size(got)} of {_format_size(total)}")
+        raise TransientError(
+            f"connection closed at {_format_size(got)} of {_format_size(total)}")
     return headers
 
 
@@ -339,7 +349,8 @@ def download_dataset(
             if os.path.exists(f):
                 os.remove(f)
     if os.path.exists(dest):
-        print(f"  SKIP {filename} ({_format_size(os.path.getsize(dest))} exists, use --force to re-download)")
+        print(f"  SKIP {filename} ({_format_size(os.path.getsize(dest))} exists, "
+              "use --force to re-download)")
         return True
 
     # Create directory structure
@@ -358,15 +369,18 @@ def download_dataset(
             elapsed = time.time() - start
             got = os.path.getsize(dest)
             speed = got / 1e6 / elapsed if elapsed > 0 else 0
-            print(f"  OK   {filename} ({_format_size(got)} in {elapsed:.0f}s, {speed:.1f} MB/s)")
+            print(f"  OK   {filename} ({_format_size(got)} in {elapsed:.0f}s, "
+                  f"{speed:.1f} MB/s)")
             return True
         except TransientError as e:
             if attempt == RETRIES:
                 kept = os.path.getsize(part) if os.path.exists(part) else 0
-                note = f"; {_format_size(kept)} kept, run the same command again to resume" if kept else ""
+                note = (f"; {_format_size(kept)} kept, run the same command again "
+                        "to resume" if kept else "")
                 print(f"  FAIL {filename}: {e} (after {RETRIES} attempts{note})")
                 return False
-            print(f"  RETRY {filename}: {e} (attempt {attempt + 1} of {RETRIES} in {wait:.0f}s)")
+            print(f"  RETRY {filename}: {e} "
+                  f"(attempt {attempt + 1} of {RETRIES} in {wait:.0f}s)")
             sleep(wait)
             wait *= 2
         except Exception as e:
@@ -415,7 +429,8 @@ def main() -> None:
             "Examples:\n"
             "  ionis-download --bundle minimal             # download to default location\n"
             "  ionis-download --bundle recommended          # contest + pskr + solar\n"
-            f"  ionis-download --bundle full                 # all 9 datasets ({_format_size(_bundle_size('full'))})\n"
+            f"  ionis-download --bundle full                 # all 9 datasets "
+            f"({_format_size(_bundle_size('full'))})\n"
             "  ionis-download --bundle minimal /custom/path # custom location\n"
             "  ionis-download --datasets wspr,grids,solar   # pick individual datasets\n"
             "  ionis-download --list                        # show available datasets\n"

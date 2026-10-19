@@ -8,6 +8,7 @@ the module-level globals with fixture data.
 import os
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 import ionis_mcp.server as server_mod
 from ionis_mcp.database import DatabaseManager
@@ -379,7 +380,10 @@ class TestRequireDb:
         old_db = server_mod.db
         server_mod.db = None
         try:
-            with pytest.raises(RuntimeError, match="Database not initialized"):
+            # ToolError now, not RuntimeError. It was already reaching the client
+            # as isError — FastMCP flags an uncaught exception — but through a path
+            # whose message survives only while mask_error_details is off (#32).
+            with pytest.raises(ToolError, match="Database not initialized"):
                 server_mod._require_db()
         finally:
             server_mod.db = old_db

@@ -26,7 +26,8 @@ class Response:
     def __init__(self, body, status=200, hdrs=None, url=URL, cut_at=None):
         self._body = io.BytesIO(body)
         self.status = status
-        self.headers = hdrs or headers(Content_Type="application/octet-stream", Content_Length=len(body))
+        self.headers = hdrs or headers(Content_Type="application/octet-stream",
+                                       Content_Length=len(body))
         self._url = url
         self._left = cut_at
 
@@ -126,7 +127,9 @@ def test_a_server_that_ignores_range_starts_over(run):
 def test_a_whole_partial_file_is_checked_not_downloaded_again(run):
     run.part.parent.mkdir(parents=True)
     run.part.write_bytes(BODY)
-    done = urllib.error.HTTPError(URL, 416, "range", headers(Content_Range=f"bytes */{len(BODY)}"), None)
+    done = urllib.error.HTTPError(URL, 416, "range",
+                                  headers(Content_Range=f"bytes */{len(BODY)}"),
+                                  None)
     assert run(Server(done))
     assert run.dest.read_bytes() == BODY
 
@@ -137,7 +140,8 @@ def test_a_permanent_error_is_not_retried(run):
 
 
 def test_an_error_page_is_not_retried_or_kept(run):
-    page = Response(b"<html>" + b"x" * 80_000, hdrs=headers(Content_Type="text/html", Content_Length=80_006))
+    page = Response(b"<html>" + b"x" * 80_000,
+                    hdrs=headers(Content_Type="text/html", Content_Length=80_006))
     assert not run(lambda req: page)
     assert run.sleeps == [] and not run.part.exists() and not run.dest.exists()
 

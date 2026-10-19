@@ -11,6 +11,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from . import tls
+
 SWPC_BASE = "https://services.swpc.noaa.gov"
 
 # Cache: url → (timestamp, data)
@@ -27,7 +29,7 @@ def _fetch_json(url: str) -> Any:
             return data
 
     req = urllib.request.Request(url, headers={"User-Agent": "ionis-mcp/1.2"})
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10, context=tls.context()) as resp:
         data = json.loads(resp.read().decode())
 
     _cache[url] = (now, data)
@@ -215,7 +217,8 @@ def band_outlook(sfi: float, kp: float) -> dict[str, str]:
     storm = kp >= 5
 
     if sfi >= 150:
-        outlook["10m"] = "EXCELLENT — F2 wide open" if not storm else "DEGRADED — storm suppressing F2"
+        outlook["10m"] = ("EXCELLENT — F2 wide open" if not storm
+                          else "DEGRADED — storm suppressing F2")
         outlook["12m"] = "EXCELLENT — solid DX" if not storm else "DEGRADED"
         outlook["15m"] = "EXCELLENT — all day" if not storm else "FAIR — storm impact"
         outlook["17m"] = "VERY GOOD" if not storm else "FAIR"

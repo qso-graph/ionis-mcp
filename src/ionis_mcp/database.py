@@ -97,7 +97,8 @@ class DatabaseManager:
     """Manages read-only SQLite connections to IONIS datasets."""
 
     data_dir: str
-    _connections: dict[str, sqlite3.Connection] = field(default_factory=dict, init=False, repr=False)
+    _connections: dict[str, sqlite3.Connection] = field(
+        default_factory=dict, init=False, repr=False)
     _datasets: dict[str, DatasetInfo] = field(default_factory=dict, init=False, repr=False)
 
     def discover(self) -> list[DatasetInfo]:
@@ -233,12 +234,15 @@ class DatabaseManager:
             if h in hourly:
                 entry = hourly[h]
                 total = entry["total_spots"]
-                entry["median_snr"] = round(entry["_snr_weighted"] / total, 1) if total > 0 else 0.0
+                entry["median_snr"] = (round(entry["_snr_weighted"] / total, 1)
+                                       if total > 0 else 0.0)
                 sfi_spots = entry["_sfi_spots"]
-                entry["avg_sfi"] = round(entry["_sfi_weighted"] / sfi_spots, 1) if sfi_spots > 0 else None
+                entry["avg_sfi"] = (round(entry["_sfi_weighted"] / sfi_spots, 1)
+                                    if sfi_spots > 0 else None)
                 entry["reliability"] = round(entry["_rel_max"], 3)
                 # Clean up internal fields
-                del entry["_snr_weighted"], entry["_sfi_weighted"], entry["_sfi_spots"], entry["_rel_max"]
+                del (entry["_snr_weighted"], entry["_sfi_weighted"],
+                     entry["_sfi_spots"], entry["_rel_max"])
                 result.append(entry)
             else:
                 result.append({
@@ -447,7 +451,8 @@ class DatabaseManager:
                 "signatures": total_sigs,
                 "total_spots": total_spots,
                 "avg_snr": round(snr_weighted / total_spots, 1) if total_spots > 0 else None,
-                "avg_reliability": round(rel_weighted / total_spots, 3) if total_spots > 0 else None,
+                "avg_reliability": (round(rel_weighted / total_spots, 3)
+                                    if total_spots > 0 else None),
             })
         return result
 
@@ -473,7 +478,8 @@ class DatabaseManager:
                     where.append("rx_grid_4 = ?")
                     params.append(rx_grid.upper())
                 row = conn.execute(
-                    f"SELECT COUNT(*) FROM {table} WHERE {' AND '.join(f'({w})' for w in where)}",
+                    f"SELECT COUNT(*) FROM {table} WHERE "
+                    f"{' AND '.join(f'({w})' for w in where)}",
                     params,
                 ).fetchone()
                 excluded += row[0] if row else 0

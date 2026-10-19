@@ -16,6 +16,7 @@ import sys
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from . import __spec_version__, __version__, default_data_dir
 from .database import SFI_MAX, SFI_MIN, SIGNATURE_SOURCES, DatabaseManager, plausible_sfi
@@ -49,10 +50,60 @@ db: DatabaseManager | None = None
 grid_lookup: GridLookup = GridLookup()
 
 
+# MCP 2026-07-28 tool annotations. The defaults are pessimistic — a tool that
+# declares nothing is advertised as destructive, non-idempotent and open-world, and
+# the specification tells a client it may keep a human in the loop for that.
+#
+# This server is the inverse of the rest of the fleet. Everywhere else nearly every
+# tool reaches somebody's web API, so openWorldHint is nearly always true. Here
+# eleven of twelve tools answer from data already on this machine, and only
+# current_conditions reaches the network. Classified per tool by reading what each
+# one touches rather than by copying a block.
+#
+# All twelve are read-only: nothing here writes, and download.py — which does write —
+# is not reachable from the tool layer.
+_READS_LOCAL_DATASETS = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    # Queries the SQLite datasets the operator has already downloaded. The
+    # specification's own example of a closed domain is a database query, and this is
+    # one: no request leaves the machine.
+    "openWorldHint": False,
+}
+_ANSWERS_WITHOUT_LOOKING = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    # get_version_info reports versions carried in the wheel; grid_info is Maidenhead
+    # arithmetic. Neither opens anything. Same values as the block above, kept
+    # separate because the reason differs and a later reader should see which it is.
+    "openWorldHint": False,
+}
+_READS_NOAA = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    # Space weather changes between calls, so two identical calls can differ. The
+    # hint is about the tool not changing state, not about a stable answer.
+    "idempotentHint": True,
+    # The one tool here that leaves the machine: NOAA SWPC over HTTPS.
+    "openWorldHint": True,
+}
+
+
 def _require_db() -> DatabaseManager:
-    """Get database manager or raise."""
+    """Get database manager, or fail in the way the protocol specifies.
+
+    This raised RuntimeError, and measured, that already reached a client as
+    `isError: true` with the message intact — FastMCP flags an uncaught exception.
+    So this is not a fix for a broken path; it is removing a dependence on a default.
+    `FastMCP(mask_error_details=...)` defaults to None, i.e. whatever the ambient
+    setting says, and when masking is on an uncaught exception's text is replaced.
+    `ToolError` is the sanctioned channel whose message is always shown, which is
+    what .claude/rules/security.md asks for.
+    """
     if db is None:
-        raise RuntimeError("Database not initialized. Set IONIS_DATA_DIR.")
+        raise ToolError("Database not initialized. Set IONIS_DATA_DIR.")
     return db
 
 
@@ -62,7 +113,8 @@ def _missing_data(mgr: DatabaseManager, source: str) -> str | None:
     No dataset installed must never look like "no propagation": an empty table from
     missing data reads as a closed band."""
     if source != "all" and source not in SIGNATURE_SOURCES:
-        return f"Unknown source '{source}'. Use one of: {', '.join(SIGNATURE_SOURCES)}, or all."
+        return (f"Unknown source '{source}'. Use one of: "
+                f"{', '.join(SIGNATURE_SOURCES)}, or all.")
     if source == "all":
         if mgr.available_sources():
             return None
@@ -107,7 +159,7 @@ def _version_info_payload() -> dict[str, str]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=_ANSWERS_WITHOUT_LOOKING)
 def get_version_info() -> dict[str, str]:
     """Get ionis-mcp service version and upstream dataset version.
 
@@ -125,7 +177,7 @@ def get_version_info() -> dict[str, str]:
 
 # ── Tool 1: list_datasets ───────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def list_datasets() -> str:
     """Show available IONIS datasets and their statistics.
 
@@ -164,7 +216,7 @@ def list_datasets() -> str:
 
 # ── Tool 2: query_signatures ────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def query_signatures(
     source: str = "all",
     band: int | None = None,
@@ -219,7 +271,8 @@ def query_signatures(
         return f"No signatures found matching: {', '.join(filters) or 'no filters'}"
 
     lines = [f"# Signature Query Results ({len(rows)} rows)\n"]
-    lines.append("| Source | TX | RX | Band | Hour | Month | SNR | Spots | Reliability | SFI | Kp | Distance |")
+    lines.append("| Source | TX | RX | Band | Hour | Month | SNR | Spots | "
+                 "Reliability | SFI | Kp | Distance |")
     lines.append("|--------|----|----|------|------|-------|-----|-------|-------------|-----|----|----------|")
 
     for r in rows:
@@ -237,7 +290,7 @@ def query_signatures(
 
 # ── Tool 3: band_openings ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def band_openings(
     tx_grid: str,
     rx_grid: str,
@@ -278,7 +331,8 @@ def band_openings(
         f"# Band Openings: {tx_valid} → {rx_valid} on {band_name(band)}\n",
         f"**Distance**: {dist:,.0f} km | **Azimuth**: {azm:.0f}°\n",
         "Solar elevation shown for mid-June (DOY 172) — seasonal variation applies.\n",
-        "| Hour | SNR (dB) | Spots | Reliability | SFI | TX Solar | RX Solar | Classification |",
+        "| Hour | SNR (dB) | Spots | Reliability | SFI | TX Solar | RX Solar | "
+        "Classification |",
         "|------|----------|-------|-------------|-----|----------|----------|----------------|",
     ]
 
@@ -310,7 +364,7 @@ def band_openings(
 
 # ── Tool 4: path_analysis ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def path_analysis(
     tx_grid: str,
     rx_grid: str,
@@ -390,7 +444,8 @@ def path_analysis(
         month_totals[m] = month_totals.get(m, 0) + spots
         source_totals[src] = source_totals.get(src, 0) + spots
 
-    lines.append(f"**Total observations**: {_format_number(total_spots)} spots across {len(sigs)} signatures\n")
+    lines.append(f"**Total observations**: {_format_number(total_spots)} spots "
+                 f"across {len(sigs)} signatures\n")
 
     # Source breakdown
     lines.append("## Sources")
@@ -405,7 +460,8 @@ def path_analysis(
     for b in sorted(band_totals.keys()):
         bt = band_totals[b]
         lines.append(
-            f"| {band_name(b)} | {_format_number(bt['sigs'])} | {_format_number(bt['spots'])} |"
+            f"| {band_name(b)} | {_format_number(bt['sigs'])} | "
+            f"{_format_number(bt['spots'])} |"
         )
     lines.append("")
 
@@ -437,7 +493,7 @@ def path_analysis(
 
 # ── Tool 5: solar_correlation ───────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def solar_correlation(
     band: int,
     tx_grid: str | None = None,
@@ -488,7 +544,8 @@ def solar_correlation(
 
     if excluded:
         lines.append(
-            f"\n{_format_number(excluded)} signatures with an SFI outside {SFI_MIN:.0f}–{SFI_MAX:.0f} "
+            f"\n{_format_number(excluded)} signatures with an SFI outside "
+            f"{SFI_MIN:.0f}–{SFI_MAX:.0f} "
             "(bad values in the dataset) are left out."
         )
 
@@ -500,7 +557,7 @@ def solar_correlation(
 
 # ── Tool 6: grid_info ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_ANSWERS_WITHOUT_LOOKING)
 def grid_info(
     grid: str,
     hour: int | None = None,
@@ -521,7 +578,8 @@ def grid_info(
     """
     valid = validate_grid(grid)
     if not valid:
-        return f"Invalid Maidenhead grid: '{grid}'. Expected format: 2 letters + 2 digits (+ optional 2 letters)."
+        return (f"Invalid Maidenhead grid: '{grid}'. Expected format: "
+                "2 letters + 2 digits (+ optional 2 letters).")
 
     lat, lon = grid_lookup.get(valid)
 
@@ -558,7 +616,7 @@ def grid_info(
 
 # ── Tool 7: compare_sources ────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def compare_sources(
     tx_grid: str,
     rx_grid: str,
@@ -630,7 +688,7 @@ def compare_sources(
 
 # ── Tool 8: dark_hour_analysis ──────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def dark_hour_analysis(
     band: int,
     hour: int,
@@ -665,7 +723,8 @@ def dark_hour_analysis(
     ]
 
     if not paths:
-        return f"No paths found for {band_name(band)} at {hour:02d}z" + (f" in month {month}" if month else "") + "."
+        return (f"No paths found for {band_name(band)} at {hour:02d}z"
+                + (f" in month {month}" if month else "") + ".")
 
     # Classify each path
     categories: dict[str, list[Any]] = {
@@ -728,7 +787,7 @@ def dark_hour_analysis(
 
 # ── Tool 9: solar_history ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def solar_history(
     start_date: str,
     end_date: str,
@@ -780,14 +839,15 @@ def solar_history(
             )
 
     if len(rows) > 200:
-        lines.append(f"\n*Showing 200 of {len(rows)} rows. Narrow the date range for full data.*")
+        lines.append(f"\n*Showing 200 of {len(rows)} rows. "
+                     "Narrow the date range for full data.*")
 
     return "\n".join(lines)
 
 
 # ── Tool 10: band_summary ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_LOCAL_DATASETS)
 def band_summary(
     band: int,
     source: str = "all",
@@ -821,8 +881,9 @@ def band_summary(
         )
     if stats["sfi_excluded"]:
         lines.append(
-            f"**SFI unknown**: {_format_number(stats['sfi_excluded'])} signatures with an SFI outside "
-            f"{SFI_MIN:.0f}–{SFI_MAX:.0f} (bad values in the dataset) are left out of the SFI range"
+            f"**SFI unknown**: {_format_number(stats['sfi_excluded'])} signatures "
+            f"with an SFI outside {SFI_MIN:.0f}–{SFI_MAX:.0f} (bad values in the "
+            "dataset) are left out of the SFI range"
         )
     if stats["distance_range_km"][0] is not None:
         lines.append(
@@ -849,7 +910,8 @@ def band_summary(
         lines.append("|----|----| ------|--------|")
         for pair in stats["top_grid_pairs"]:
             lines.append(
-                f"| {pair['tx']} | {pair['rx']} | {_format_number(pair['spots'])} | {pair['source']} |"
+                f"| {pair['tx']} | {pair['rx']} | "
+                f"{_format_number(pair['spots'])} | {pair['source']} |"
             )
 
     return "\n".join(lines)
@@ -857,7 +919,7 @@ def band_summary(
 
 # ── Tool 11: current_conditions ────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=_READS_NOAA)
 def current_conditions(
     qth_grid: str | None = None,
 ) -> str:
@@ -939,15 +1001,18 @@ def current_conditions(
         # POTA/SOTA recommendation
         lines.append("\n## Portable / POTA / SOTA\n")
         if cond.sfi >= 150 and cond.kp < 4:
-            lines.append("**Best portable bands**: 20m (reliable all day), 15m (excellent), 10m (open)")
+            lines.append("**Best portable bands**: 20m (reliable all day), "
+                         "15m (excellent), 10m (open)")
             lines.append("**Strategy**: Start on 15m/10m, fall back to 20m if they close")
             lines.append("**Modes**: SSB for fast QSO rate — bands are wide open. "
-                         "CW for DX pileups. FT8 unnecessary but works on 10m for weak openings.")
+                         "CW for DX pileups. FT8 unnecessary but works on 10m "
+                         "for weak openings.")
         elif cond.sfi >= 120 and cond.kp < 4:
             lines.append("**Best portable bands**: 20m (primary), 15m/17m (good)")
             lines.append("**Strategy**: 20m is your workhorse, try 15m for DX midday")
             lines.append("**Modes**: SSB on 20m/15m for quick QSO rate. "
-                         "CW for DX and weaker paths. FT8 on 10m/12m where openings are short.")
+                         "CW for DX and weaker paths. FT8 on 10m/12m where "
+                         "openings are short.")
         elif cond.sfi >= 90 and cond.kp < 4:
             lines.append("**Best portable bands**: 20m (primary), 40m (reliable)")
             lines.append("**Strategy**: 20m for DX, 40m for regional. 15m worth a try midday.")
@@ -956,13 +1021,16 @@ def current_conditions(
                          "SSB on 40m for regional park-to-park.")
         elif cond.kp >= 5:
             lines.append("**Geomagnetic storm active** — conditions degraded on all bands")
-            lines.append("**Strategy**: 40m/80m may be more stable than HF. Wait for Kp to drop.")
+            lines.append("**Strategy**: 40m/80m may be more stable than HF. "
+                         "Wait for Kp to drop.")
             lines.append("**Modes**: FT8 primary — signals will be weak and fading. "
                          "CW as backup. SSB only on 40m/80m if signals are strong enough.")
         else:
-            lines.append("**Best portable bands**: 40m (primary), 20m (daytime), 80m (evening)")
+            lines.append("**Best portable bands**: 40m (primary), "
+                         "20m (daytime), 80m (evening)")
             lines.append("**Strategy**: Low SFI favors lower bands. 20m still works daytime.")
-            lines.append("**Modes**: FT8 on 20m and above — low ionization means weak signals. "
+            lines.append("**Modes**: FT8 on 20m and above — low ionization means "
+                         "weak signals. "
                          "CW/SSB on 40m/80m where conditions are more reliable. "
                          "FT8 on 15m for any sporadic openings.")
 
@@ -1083,7 +1151,8 @@ def main() -> None:
     if db.is_available("grids"):
         grid_db_path = os.path.join(data_dir, "tools/grid-lookup/grid_lookup.sqlite")
         count = grid_lookup.load_from_sqlite(grid_db_path)
-        print(f"  Grid lookup: {_format_number(count)} grids loaded into memory", file=sys.stderr)
+        print(f"  Grid lookup: {_format_number(count)} grids loaded into memory",
+              file=sys.stderr)
 
     # Run server
     if args.transport == "streamable-http":

@@ -120,5 +120,6 @@ def azimuth_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     lat2_r = math.radians(lat2)
     dlon = math.radians(lon2 - lon1)
     x = math.sin(dlon) * math.cos(lat2_r)
-    y = math.cos(lat1_r) * math.sin(lat2_r) - math.sin(lat1_r) * math.cos(lat2_r) * math.cos(dlon)
+    y = (math.cos(lat1_r) * math.sin(lat2_r)
+         - math.sin(lat1_r) * math.cos(lat2_r) * math.cos(dlon))
     return (math.degrees(math.atan2(x, y)) + 360) % 360
