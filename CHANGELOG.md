@@ -5,6 +5,13 @@ All notable changes to `ionis-mcp` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `--version` now prints the version and exits. It was not a declared argument,
+  so argparse rejected it with exit 2 and a usage line. `--help` already worked.
+
 ## [1.4.1] — 2026-10-26
 
 - A release should appear on the Releases page
