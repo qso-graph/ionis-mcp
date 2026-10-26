@@ -11,7 +11,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from . import tls
+from . import __version__, ratelimit, tls
 
 SWPC_BASE = "https://services.swpc.noaa.gov"
 
@@ -28,7 +28,13 @@ def _fetch_json(url: str) -> Any:
         if now - ts < _CACHE_TTL:
             return data
 
-    req = urllib.request.Request(url, headers={"User-Agent": "ionis-mcp/1.2"})
+    # The version came from a hardcoded "1.2" until 2026-10-26, which had been
+    # wrong since 1.3.0 -- a User-Agent exists so the far end can tell who is
+    # calling, and a stale one tells them something untrue.
+    req = urllib.request.Request(
+        url, headers={"User-Agent": f"ionis-mcp/{__version__}"}
+    )
+    ratelimit.wait()
     with urllib.request.urlopen(req, timeout=10, context=tls.context()) as resp:
         data = json.loads(resp.read().decode())
 

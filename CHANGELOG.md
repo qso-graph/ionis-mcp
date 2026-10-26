@@ -5,6 +5,30 @@ All notable changes to `ionis-mcp` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Requests to NOAA SWPC are now spaced.** Where a provider states a request
+  limit this server honours that limit; NOAA SWPC states none, so the gap is a
+  recorded judgement rather than a published figure — 200 ms, matching what
+  `sota-mcp` and `iota-mcp` already use, with the reasoning written beside the
+  constant so it can be revisited rather than rediscovered. A volunteer or public
+  service with no stated limit still deserves restraint (KI7MT, 2026-10-11).
+
+  This is not throttling the user. It limits what this server sends to somebody
+  else's service; it does not limit the person asking. The response cache does the
+  larger share of the work by removing requests rather than delaying them, and the
+  spacing covers what a cache cannot: a model calling tools in a loop over inputs
+  that each miss.
+- The `User-Agent` said `ionis-mcp/1.2`, hardcoded, and had been wrong since
+  1.3.0. A `User-Agent` exists so the far end can tell who is calling, and a stale
+  one tells them something untrue. It now reports the installed version.
+- Deliberately not applied to the SourceForge dataset download: a fraction of a
+  second between multi-gigabyte transfers measures nothing, and the restraint that
+  matters there is not re-downloading, which the checksum check already provides.
+
+
 ## [1.5.0] — 2026-10-26
 
 ### Changed
