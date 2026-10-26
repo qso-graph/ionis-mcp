@@ -1095,6 +1095,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="IONIS MCP Server — HF Propagation Analytics",
     )
+    # --version was not declared, so argparse rejected it with exit 2 and a
+    # usage line. Correct for an unknown flag, but it is the one thing a person
+    # types to find out what they have installed.
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"ionis-mcp {__version__}",
+    )
     parser.add_argument(
         "--data-dir",
         default="",
