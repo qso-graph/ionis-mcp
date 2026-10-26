@@ -1112,7 +1112,8 @@ def main() -> None:
         "--transport",
         choices=["stdio", "streamable-http"],
         default="stdio",
-        help="MCP transport (default: stdio)",
+        help="MCP transport (default: stdio). streamable-http binds 127.0.0.1 "
+             "only: not another machine, not a container.",
     )
     parser.add_argument(
         "--port",
@@ -1164,6 +1165,13 @@ def main() -> None:
 
     # Run server
     if args.transport == "streamable-http":
+        # Where it bound, said out loud. FastMCP binds 127.0.0.1 and takes
+        # no host option, so this is never reachable from another machine
+        # or from outside a container. Silent before this line.
+        print(
+            f"ionis-mcp on http://127.0.0.1:{args.port}/mcp - loopback only",
+            file=sys.stderr,
+        )
         mcp.run(transport="streamable-http", port=args.port)
     else:
         mcp.run()
