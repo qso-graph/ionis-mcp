@@ -7,11 +7,12 @@ hammering the service.
 
 import json
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from . import tls
+from . import __version__, ratelimit, tls
 
 SWPC_BASE = "https://services.swpc.noaa.gov"
 
@@ -28,9 +29,27 @@ def _fetch_json(url: str) -> Any:
         if now - ts < _CACHE_TTL:
             return data
 
-    req = urllib.request.Request(url, headers={"User-Agent": "ionis-mcp/1.2"})
-    with urllib.request.urlopen(req, timeout=10, context=tls.context()) as resp:
-        data = json.loads(resp.read().decode())
+    # The version came from a hardcoded "1.2" until 2026-10-26, which had been
+    # wrong since 1.3.0 -- a User-Agent exists so the far end can tell who is
+    # calling, and a stale one tells them something untrue.
+    req = urllib.request.Request(
+        url, headers={"User-Agent": f"ionis-mcp/{__version__}"}
+    )
+    ratelimit.wait(url)
+    try:
+        with urllib.request.urlopen(req, timeout=10, context=tls.context()) as resp:
+            data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        # A 429 is NOAA stating its limit outright, so it is honoured. 503
+        # counts only with Retry-After, which is a deliberate shed; a bare 503
+        # is an outage and is re-raised unchanged, as every other status is --
+        # this path reported nothing before and the point here is the limit,
+        # not a new error vocabulary.
+        if exc.code == 429 or (exc.code == 503 and exc.headers.get("Retry-After")):
+            raise ratelimit.RateLimited(
+                ratelimit.block(url, exc.headers.get("Retry-After"))
+            ) from exc
+        raise
 
     _cache[url] = (now, data)
     return data
