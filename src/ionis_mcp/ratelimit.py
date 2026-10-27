@@ -6,15 +6,15 @@ settled on a figure, so this matches that decision rather than making a second
 one for one provider.
 
 Deliberately not applied to download.py. That fetches multi-gigabyte
-SourceForge datasets, where a fraction of a second between whole-file
-transfers measures nothing; the restraint that matters there is not
-re-downloading, which its checksum check already provides.
+SourceForge datasets, where a fraction of a second between whole-file transfers
+measures nothing; the restraint that matters there is not re-downloading, which
+its checksum check already provides.
 
 This is not throttling the user (KI7MT, 2026-10-11): it limits what this server
 sends to somebody else's service, and does not limit the person asking. The
-cache in noaa.py, holding responses 900 s does the larger share of the
-work -- it removes requests rather than delaying them -- and this covers what the
-cache cannot: a model calling tools in a loop over inputs that each miss.
+cache in noaa.py, holding responses 900 s does the larger share of the work --
+it removes requests rather than delaying them -- and this covers what the cache
+cannot: a model calling tools in a loop over inputs that each miss.
 """
 
 from __future__ import annotations
@@ -43,7 +43,8 @@ _blocked_until: dict[str, float] = {}
 
 
 class RateLimited(RuntimeError):
-    """NOAA asked us to stop. The message is safe to show a user.
+    """A provider asked us to stop. The message names which one, and is
+    safe to show a user.
 
     A RuntimeError subclass so callers that already handle this client's
     failures keep working, and so FastMCP flags the tool result isError either
