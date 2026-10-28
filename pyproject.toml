@@ -12,7 +12,7 @@ dependencies = [
     # rather than whichever store the running Python was built against. Measured:
     # not transitive via fastmcp, so an undeclared import is an ImportError at
     # startup (qso-graph-devel#73).
-    "certifi",
+    "certifi>=2026.10.19",
 ]
 keywords = [
     "amateur-radio", "ham-radio", "hf-propagation", "ionosphere", "space-weather",
