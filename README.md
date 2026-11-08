@@ -15,8 +15,6 @@ uv tool install ionis-mcp         # puts ionis-mcp and ionis-download on your PA
 ionis-download --bundle minimal   # 454 MB; see Datasets for the other bundles
 ```
 
-Or with pip: `pip install ionis-mcp`.
-
 ## Tools
 
 | Tool | Description | Key Parameters |
