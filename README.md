@@ -216,7 +216,7 @@ Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
 }
 ```
 
-Installed with pip instead? Use `"command": "ionis-mcp"` in any config above.
+Installed with `uv tool install`? Use `"command": "ionis-mcp"` in any config above.
 
 ### Ask questions
 
