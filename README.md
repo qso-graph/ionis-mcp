@@ -4,7 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/ionis-mcp?label=PyPI&color=blue)](https://pypi.org/project/ionis-mcp/)
 [![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0%2Fservers%3Fsearch%3Dio.github.qso-graph%2Fionis-mcp%26version%3Dlatest&query=%24.servers%5B0%5D.server.version&label=MCP%20Registry&color=blue)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.qso-graph/ionis-mcp&version=latest)
 
-MCP server for HF radio propagation analytics on the [IONIS-AI](https://ionis-ai.com/) datasets — 175M+ aggregated signatures derived from 14 billion WSPR, RBN, contest, DXpedition and PSK Reporter observations, 2005–2026 — through any MCP-compatible AI assistant.
+MCP server for HF radio propagation analytics on the [IONIS-AI](https://ionis-ai.com/) datasets—175M+ aggregated signatures derived from 14 billion WSPR, RBN, contest, DXpedition and PSK Reporter observations, 2005–2026—through any MCP-compatible AI assistant.
 
 Part of the [qso-graph](https://qso-graph.io/) project. **No authentication required.** The datasets are downloaded once (see [Datasets](#datasets)).
 
@@ -38,15 +38,15 @@ IONIS-AI is an open-source machine learning system for predicting HF (shortwave)
 
 | Source | Signatures | Raw Observations | SNR Type | Years |
 |--------|-----------|-----------------|----------|-------|
-| [WSPR](https://www.wsprnet.org/) | 93.6M | 10.9B beacon spots | Measured (-30 to +20 dB) | 2008-2026 |
-| [RBN](https://reversebeacon.net/) | 67.3M | 2.3B CW/RTTY spots | Measured (8-29 dB) | 2009-2026 |
+| [WSPR](https://www.wsprnet.org/) | 93.6M | 10.9 billion beacon spots | Measured (-30 to +20 dB) | 2008-2026 |
+| [RBN](https://reversebeacon.net/) | 67.3M | 2.3 billion CW/RTTY spots | Measured (8-29 dB) | 2009-2026 |
 | [CQ Contests](https://cqww.com/) | 5.7M | 234M SSB/RTTY QSOs | Anchored (+10/0 dB) | 2005-2025 |
 | [DXpeditions](https://www.ng3k.com/misc/adxo.html) | 260K | 3.9M rare-grid paths | Measured | 2009-2025 |
 | [PSK Reporter](https://pskreporter.info/) | 8.4M | 514M+ FT8/WSPR spots | Measured (-34 to +38 dB) | Feb 2026+ |
 | Solar Indices | — | 77K daily/3-hour records | SFI, SSN, Kp, Ap | 2000-2026 |
 | DSCOVR L1 | — | 23K solar wind samples | Bz, speed, density | Feb 2026+ |
 
-All signature tables share an identical 13-column schema (tx\_grid, rx\_grid, band, hour, month, median\_snr, spot\_count, snr\_std, reliability, avg\_sfi, avg\_kp, avg\_distance, avg\_azimuth) — ready for cross-source analysis.
+All signature tables share an identical 13-column schema (tx\_grid, rx\_grid, band, hour, month, median\_snr, spot\_count, snr\_std, reliability, avg\_sfi, avg\_kp, avg\_distance, avg\_azimuth)—ready for cross-source analysis.
 
 ## Datasets
 
@@ -116,7 +116,7 @@ If a download is interrupted (a dropped connection, Ctrl-C), run the same comman
     └── balloon-callsigns/balloon_callsigns_v2.sqlite    (0.1 MB, 1.5K rows)
 ```
 
-The server works with whatever datasets are present. Missing datasets degrade gracefully — tools that need unavailable data return clear messages instead of errors.
+The server works with whatever datasets are present. Missing datasets degrade gracefully—tools that need unavailable data return clear messages instead of errors.
 
 ## Quick Start
 
@@ -235,10 +235,10 @@ Installed with pip instead? Use `"command": "ionis-mcp"` in any config above.
 ## Architecture
 
 - **Transport**: stdio (Claude Desktop / Claude Code) or streamable-http (MCP Inspector)
-- **Database**: Read-only `sqlite3` connections (`?mode=ro`) — no writes, ever
+- **Database**: Read-only `sqlite3` connections (`?mode=ro`)—no writes, ever
 - **Query safety**: All queries use parameterized SQL (`?` placeholders), result limits enforced server-side (max 1000 rows)
 - **Grid lookup**: 31.7K Maidenhead grids loaded into memory at startup (~2 MB) for instant lat/lon resolution
-- **Solar geometry**: Pure Python solar elevation computation (same algorithm as the IONIS-AI training pipeline) — classifies endpoints as day/twilight/night for propagation context
+- **Solar geometry**: Pure Python solar elevation computation (same algorithm as the IONIS-AI training pipeline)—classifies endpoints as day/twilight/night for propagation context
 - **Cross-source queries**: Each SQLite database opened separately, results merged in Python with source labels
 
 ## MCP Inspector
@@ -273,4 +273,4 @@ GPL-3.0-or-later
 
 If you use the IONIS-AI datasets in research, please cite:
 
-> Beam, G. (KI7MT). *IONIS: Ionospheric Neural Inference System — HF Propagation Prediction Datasets.* SourceForge, 2026. https://sourceforge.net/projects/ionis-ai/
+> Beam, G. (KI7MT). *IONIS: Ionospheric Neural Inference System—HF Propagation Prediction Datasets.* SourceForge, 2026. https://sourceforge.net/projects/ionis-ai/
