@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+## [1.6.2] — 2026-11-08
 
+### Changed
 
 - README: style fixes for the QSO Graph style guide (Google Developer Documentation Style Guide, American English).
 - README: install with uv only, as every QSO Graph package does.
